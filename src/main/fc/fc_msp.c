@@ -955,8 +955,10 @@ static bool mspFcProcessOutCommand(uint8_t cmdMSP, sbuf_t *dst, mspPostProcessFn
         sbufWriteU8(dst, failsafeConfig()->failsafe_recovery_delay);
         sbufWriteU16(dst, failsafeConfig()->failsafe_fw_roll_angle);
         sbufWriteU16(dst, failsafeConfig()->failsafe_fw_pitch_angle);
-        sbufWriteU16(dst, failsafeConfig()->failsafe_fw_yaw_rate);
+        sbufWriteU16(dst, failsafeConfig()->failsafe_fw_yaw_rate);   
         sbufWriteU16(dst, failsafeConfig()->failsafe_stick_motion_threshold);
+        sbufWriteU16(dst, failsafeConfig()->failsafe_min_distance);  
+        sbufWriteU8(dst, failsafeConfig()->failsafe_min_distance_procedure);  
         break;
 
     case MSP_RSSI_CONFIG:
@@ -2000,8 +2002,13 @@ static mspResult_e mspFcProcessInCommand(uint8_t cmdMSP, sbuf_t *src)
             failsafeConfigMutable()->failsafe_fw_roll_angle = sbufReadU16(src);
             failsafeConfigMutable()->failsafe_fw_pitch_angle = sbufReadU16(src);
             failsafeConfigMutable()->failsafe_fw_yaw_rate = sbufReadU16(src);
-            failsafeConfigMutable()->failsafe_stick_motion_threshold = sbufReadU16(src);
+            failsafeConfigMutable()->failsafe_stick_motion_threshold = sbufReadU16(src);                                   
         }
+        if (dataSize > 10) {
+            failsafeConfigMutable()->failsafe_min_distance = sbufReadU16(src);                                    
+            failsafeConfigMutable()->failsafe_min_distance_procedure = sbufReadU8(src);    
+        }        
+
         break;
 
     case MSP_SET_RSSI_CONFIG:
