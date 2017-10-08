@@ -2004,7 +2004,7 @@ static mspResult_e mspFcProcessInCommand(uint8_t cmdMSP, sbuf_t *src)
             failsafeConfigMutable()->failsafe_fw_yaw_rate = sbufReadU16(src);
             failsafeConfigMutable()->failsafe_stick_motion_threshold = sbufReadU16(src);
         }
-        if (dataSize > 10) {
+        if (dataSize > 17) {
             failsafeConfigMutable()->failsafe_min_distance = sbufReadU16(src);
             failsafeConfigMutable()->failsafe_min_distance_procedure = sbufReadU8(src);
         }
