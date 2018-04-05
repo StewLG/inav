@@ -75,6 +75,8 @@
 #define PG_VTX_CONFIG 54
 #define PG_ELERES_CONFIG 55
 #define PG_CF_END 56
+#define PG_RSSI_CONFIG 57
+#define PG_LINK_QUALITY_CONFIG 58
 
 // Driver configuration
 //#define PG_DRIVER_PWM_RX_CONFIG 100

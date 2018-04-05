@@ -135,6 +135,7 @@ void pidResetErrorAccumulators(void);
 struct controlRateConfig_s;
 struct motorConfig_s;
 struct rxConfig_s;
+struct rssiConfig_s;
 
 void schedulePidGainsUpdate(void);
 void updatePIDCoefficients(void);

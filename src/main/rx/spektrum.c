@@ -62,12 +62,11 @@ static uint8_t spek_chan_mask;
 static bool rcFrameComplete = false;
 static bool spekHiRes = false;
 
-// Variables used for calculating a signal strength from satellite fade.
+// Variables used for calculating a link quality metric from satellite fade.
 //  This is time-variant and computed every second based on the fade
 //  count over the last second.
 static uint32_t spek_fade_last_sec = 0; // Stores the timestamp of the last second.
 static uint16_t spek_fade_last_sec_count = 0; // Stores the fade count at the last second.
-static uint8_t rssi_channel; // Stores the RX RSSI channel.
 
 static volatile uint8_t spekFrame[SPEK_FRAME_SIZE];
 
@@ -111,6 +110,8 @@ static void spektrumDataReceive(uint16_t c, void *rxCallbackData)
 }
 
 static uint32_t spekChannelData[SPEKTRUM_MAX_SUPPORTED_CHANNEL_COUNT];
+static uint32_t spekFadeCount;
+
 
 uint8_t spektrumFrameStatus(void)
 {
@@ -132,12 +133,18 @@ uint8_t spektrumFrameStatus(void)
         // If the difference is > 1, then we missed several seconds worth of frames and
         // should just throw out the fade calc (as it's likely a full signal loss).
         if ((current_secs - spek_fade_last_sec) == 1) {
-            if (rssi_channel != 0) {
+            //if (rssi_channel != 0) {
                 if (spekHiRes)
-                    spekChannelData[rssi_channel] = 2048 - ((fade - spek_fade_last_sec_count) * 2048 / (SPEKTRUM_MAX_FADE_PER_SEC / SPEKTRUM_FADE_REPORTS_PER_SEC));
+                    //spekChannelData[rssi_channel] = 2048 - ((fade - spek_fade_last_sec_count) * 2048 / (SPEKTRUM_MAX_FADE_PER_SEC / SPEKTRUM_FADE_REPORTS_PER_SEC));
+
+                    // THIS IS SURELY WRONG, but I'm not yet sure what it should be either...
+                    spekFadeCount = 2048 - ((fade - spek_fade_last_sec_count) * 2048 / (SPEKTRUM_MAX_FADE_PER_SEC / SPEKTRUM_FADE_REPORTS_PER_SEC)) / 1024;
                 else
-                    spekChannelData[rssi_channel] = 1024 - ((fade - spek_fade_last_sec_count) * 1024 / (SPEKTRUM_MAX_FADE_PER_SEC / SPEKTRUM_FADE_REPORTS_PER_SEC));
-            }
+                    //spekChannelData[rssi_channel] = 1024 - ((fade - spek_fade_last_sec_count) * 1024 / (SPEKTRUM_MAX_FADE_PER_SEC / SPEKTRUM_FADE_REPORTS_PER_SEC));
+
+                    // THIS IS SURELY WRONG, but I'm not yet sure what it should be either...
+                    spekFadeCount = 1024 - ((fade - spek_fade_last_sec_count) * 1024 / (SPEKTRUM_MAX_FADE_PER_SEC / SPEKTRUM_FADE_REPORTS_PER_SEC));
+         //   }
         }
         spek_fade_last_sec_count = fade;
         spek_fade_last_sec = current_secs;
@@ -147,13 +154,18 @@ uint8_t spektrumFrameStatus(void)
     for (int b = 3; b < SPEK_FRAME_SIZE; b += 2) {
         const uint8_t spekChannel = 0x0F & (spekFrame[b - 1] >> spek_chan_shift);
         if (spekChannel < rxRuntimeConfigPtr->channelCount && spekChannel < SPEKTRUM_MAX_SUPPORTED_CHANNEL_COUNT) {
-            if (rssi_channel == 0 || spekChannel != rssi_channel) {
+            //if (rssi_channel == 0 || spekChannel != rssi_channel) {
                 spekChannelData[spekChannel] = ((uint32_t)(spekFrame[b - 1] & spek_chan_mask) << 8) + spekFrame[b];
-            }
+            //}
         }
     }
 
     return RX_FRAME_COMPLETE;
+}
+
+uint16_t spektrumGetFadeCount(void)
+{
+    return spekFadeCount;
 }
 
 static uint16_t spektrumReadRawRC(const rxRuntimeConfig_t *rxRuntimeConfig, uint8_t chan)
@@ -300,11 +312,6 @@ bool spektrumInit(const rxConfig_t *rxConfig, rxRuntimeConfig_t *rxRuntimeConfig
         telemetrySharedPort = serialPort;
     }
 #endif
-
-    rssi_channel = rxConfig->rssi_channel - 1; // -1 because rxConfig->rssi_channel is 1-based and rssi_channel is 0-based.
-    if (rssi_channel >= rxRuntimeConfig->channelCount) {
-        rssi_channel = 0;
-    }
 
     return serialPort != NULL;
 }

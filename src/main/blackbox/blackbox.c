@@ -518,7 +518,10 @@ static bool testBlackboxConditionUncached(FlightLogFieldCondition condition)
 #endif
 
     case FLIGHT_LOG_FIELD_CONDITION_RSSI:
-        return rxConfig()->rssi_channel > 0 || feature(FEATURE_RSSI_ADC);
+        // TODO: We also want to log Link Quality I expect.
+    
+        //return rxConfig()->rssi_channel > 0 || feature(FEATURE_RSSI_ADC);
+        return rssiConfig()->rssiType != RSSI_TYPE_NONE;
 
     case FLIGHT_LOG_FIELD_CONDITION_NOT_LOGGING_EVERY_FRAME:
         return blackboxConfig()->rate_num < blackboxConfig()->rate_denom;

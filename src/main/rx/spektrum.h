@@ -23,3 +23,5 @@
 uint8_t spektrumFrameStatus(void);
 void spektrumBind(rxConfig_t *rxConfig);
 bool spektrumInit(const rxConfig_t *rxConfig, rxRuntimeConfig_t *rxRuntimeConfig);
+// Get the current Spektrum Fade Count
+uint16_t spektrumGetFadeCount(void);

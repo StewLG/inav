@@ -91,6 +91,14 @@ tables:
     values: ["PERCENT", "MAH", "MWH"]
     enum: smartportFuelUnit_e
 
+  - name: rssi_type
+    values: ["NONE", "ADC", "RC_CHANNEL", "ELERES", "MAVLINK_RADIO"]
+    enum: rssiType_e
+
+  - name: link_quality_type
+    values: ["NONE", "ADC", "RC_CHANNEL", "SPEKTRUM_SAT_FADE", "SBUS_PACKET_DROP", "ELERES", "MAVLINK_RADIO"]
+    enum: linkQualityType_e
+
 groups:
   - name: PG_GYRO_CONFIG
     type: gyroConfig_t
@@ -312,15 +320,18 @@ groups:
         field: maxcheck
         min: PWM_RANGE_ZERO
         max: PWM_RANGE_MAX
-      - name: rssi_channel
-        min: 0
-        max: MAX_SUPPORTED_RC_CHANNEL_COUNT
-      - name: rssi_scale
-        min: RSSI_SCALE_MIN
-        max: RSSI_SCALE_MAX
-      - name: rssi_invert
-        field: rssiInvert
-        type: bool
+
+
+# These are going away, here for reference until genuinely dead
+#      - name: rssi_scale
+#        min: RSSI_SCALE_MIN
+#        max: RSSI_SCALE_MAX
+
+#      - name: rssi_invert
+#        field: rssiInvert
+#        type: bool
+
+
       - name: rc_smoothing
         field: rcSmoothing
         type: bool
@@ -354,6 +365,72 @@ groups:
         field: halfDuplex
         condition: STM32F4
         type: bool
+
+    ## NEW RSSI Thingy
+  - name: PG_RSSI_CONFIG
+    type: rssiConfig_t
+    headers: ["rx/rx.h", "rx/spektrum.h"]
+    members:
+      # Mind the dashes below!!
+      - name: rssi_type
+        field: rssiType
+        table: rssi_type
+
+      - name: rssi_channel
+        field: rssiChannel
+        min: 0
+        max: MAX_SUPPORTED_RC_CHANNEL_COUNT
+
+      - name: rssi_channel_low
+        field: rssiChannelLow
+        type: uint16_t
+        min: PWM_RANGE_ZERO
+        max: PWM_RANGE_MAX
+
+      - name: rssi_channel_high
+        field: rssiChannelHigh
+        type: uint16_t
+        min: PWM_RANGE_ZERO
+        max: PWM_RANGE_MAX
+
+      - name: rssi_adc_low
+        field: rssiAdcLow
+        type: uint16_t
+        min: RSSI_ADC_CENTIVOLT_MIN
+        max: RSSI_ADC_CENTIVOLT_MAX
+
+      - name: rssi_adc_high
+        field: rssiAdcHigh
+        type: uint16_t
+        min: RSSI_ADC_CENTIVOLT_MIN
+        max: RSSI_ADC_CENTIVOLT_MAX
+
+    ## NEW Link Quality Thingy
+  - name: PG_LINK_QUALITY_CONFIG
+    type: linkQualityConfig_t
+    headers: ["rx/rx.h", "rx/spektrum.h"]
+    members:
+      # Mind the dashes below!!
+      - name: link_quality_type
+        field: linkQualityType
+        table: link_quality_type
+
+      - name: link_quality_channel
+        field: linkQualityChannel
+        min: 0
+        max: MAX_SUPPORTED_RC_CHANNEL_COUNT
+
+      - name: link_quality_channel_low
+        field: linkQualityChannelLow
+        type: uint16_t
+        min: PWM_RANGE_ZERO
+        max: PWM_RANGE_MAX
+
+      - name: link_quality_channel_high
+        field: linkQualityChannelHigh
+        type: uint16_t
+        min: PWM_RANGE_ZERO
+        max: PWM_RANGE_MAX
 
   - name: PG_BLACKBOX_CONFIG
     type: blackboxConfig_t

@@ -669,7 +669,8 @@ static bool mspFcProcessOutCommand(uint16_t cmdMSP, sbuf_t *dst, mspPostProcessF
         sbufWriteU8(dst, 0); // gps_ubx_sbas
 #endif
         sbufWriteU8(dst, 0); // multiwiiCurrentMeterOutput
-        sbufWriteU8(dst, rxConfig()->rssi_channel);
+        // TODO: Figure out why this is here. Is it just for Configurator - in which case, I'd like to move it.
+        sbufWriteU8(dst, rssiConfig()->rssiChannel);
         sbufWriteU8(dst, 0);
 
         sbufWriteU16(dst, compassConfig()->mag_declination / 10);
@@ -698,7 +699,8 @@ static bool mspFcProcessOutCommand(uint16_t cmdMSP, sbuf_t *dst, mspPostProcessF
         sbufWriteU8(dst, 0); // TODO gps_baudrate (an index, cleanflight uses a uint32_t
         sbufWriteU8(dst, 0); // gps_ubx_sbas
 #endif
-        sbufWriteU8(dst, rxConfig()->rssi_channel);
+        // TODO: Figure out why this is here. Is it just for Configurator - in which case, I'd like to move it.
+        sbufWriteU8(dst, rssiConfig()->rssiChannel);
 
         sbufWriteU16(dst, compassConfig()->mag_declination / 10);
 
@@ -862,8 +864,14 @@ static bool mspFcProcessOutCommand(uint16_t cmdMSP, sbuf_t *dst, mspPostProcessF
         sbufWriteU8(dst, failsafeConfig()->failsafe_min_distance_procedure);
         break;
 
+    // NEW Rssi stuff here
     case MSP_RSSI_CONFIG:
-        sbufWriteU8(dst, rxConfig()->rssi_channel);
+        sbufWriteU8(dst, rssiConfig()->rssiType);
+        sbufWriteU16(dst, rssiConfig()->rssiChannel);
+        sbufWriteU16(dst, rssiConfig()->rssiChannelLow);
+        sbufWriteU16(dst, rssiConfig()->rssiChannelHigh);
+        sbufWriteU16(dst, rssiConfig()->rssiAdcLow);
+        sbufWriteU16(dst, rssiConfig()->rssiAdcHigh);
         break;
 
     case MSP_RX_MAP:
@@ -1535,7 +1543,7 @@ static mspResult_e mspFcProcessInCommand(uint16_t cmdMSP, sbuf_t *src)
         sbufReadU8(src); // gps_ubx_sbas
 #endif
         sbufReadU8(src); // multiwiiCurrentMeterOutput
-        rxConfigMutable()->rssi_channel = sbufReadU8(src);
+        sbufReadU8(src); // old rssi_channel
         sbufReadU8(src);
 
 #ifdef USE_MAG
@@ -1568,7 +1576,8 @@ static mspResult_e mspFcProcessInCommand(uint16_t cmdMSP, sbuf_t *src)
         sbufReadU8(src); // gps_baudrate
         sbufReadU8(src); // gps_ubx_sbas
 #endif
-        rxConfigMutable()->rssi_channel = sbufReadU8(src);
+        //rxConfigMutable()->rssi_channel = sbufReadU8(src);
+        sbufReadU8(src); // old rssi_channel
 
 #ifdef USE_MAG
         compassConfigMutable()->mag_declination = sbufReadU16(src) * 10;
@@ -2099,6 +2108,17 @@ static mspResult_e mspFcProcessInCommand(uint16_t cmdMSP, sbuf_t *src)
         sbufReadU8Safe(&rxConfigMutable()->receiverType, src);              // Won't be modified if buffer is not large enough
         break;
 
+    // TODO: Of course, do same for Link Quality..
+
+    case MSP_SET_RSSI_CONFIG:
+        sbufReadU8Safe(&rssiConfigMutable()->rssiType, src);
+        sbufReadU8Safe(&rssiConfigMutable()->rssiChannel, src);
+        sbufReadU16Safe(&rssiConfigMutable()->rssiChannelLow, src);
+        sbufReadU16Safe(&rssiConfigMutable()->rssiChannelHigh, src);
+        sbufReadU16Safe(&rssiConfigMutable()->rssiAdcLow, src);
+        sbufReadU16Safe(&rssiConfigMutable()->rssiAdcHigh, src);
+        break;
+
     case MSP_SET_FAILSAFE_CONFIG:
         sbufReadU8Safe(&failsafeConfigMutable()->failsafe_delay, src);
         sbufReadU8Safe(&failsafeConfigMutable()->failsafe_off_delay, src);
@@ -2113,10 +2133,6 @@ static mspResult_e mspFcProcessInCommand(uint16_t cmdMSP, sbuf_t *src)
         sbufReadU16Safe(&failsafeConfigMutable()->failsafe_stick_motion_threshold, src);
         sbufReadU16Safe(&failsafeConfigMutable()->failsafe_min_distance, src);
         sbufReadU8Safe(&failsafeConfigMutable()->failsafe_min_distance_procedure, src);
-        break;
-
-    case MSP_SET_RSSI_CONFIG:
-        sbufReadU8Safe(&rxConfigMutable()->rssi_channel, src);
         break;
 
     case MSP_SET_RX_MAP:

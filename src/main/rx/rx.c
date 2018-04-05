@@ -69,6 +69,7 @@
 const char rcChannelLetters[] = "AERT5678";
 
 uint16_t rssi = 0;                  // range: [0;1023]
+uint16_t link_quality = 0;          // range: [0;1023], like RSSI.
 
 static bool rxSignalReceived = false;
 static bool rxFlightChannelsValid = false;
@@ -90,6 +91,8 @@ static uint8_t rcSampleIndex = 0;
 
 PG_REGISTER_WITH_RESET_TEMPLATE(rxConfig_t, rxConfig, PG_RX_CONFIG, 3);
 
+PG_REGISTER_WITH_RESET_TEMPLATE(rssiConfig_t, rssiConfig, PG_RSSI_CONFIG, 3);
+
 #ifndef RX_SPI_DEFAULT_PROTOCOL
 #define RX_SPI_DEFAULT_PROTOCOL 0
 #endif
@@ -99,6 +102,14 @@ PG_REGISTER_WITH_RESET_TEMPLATE(rxConfig_t, rxConfig, PG_RX_CONFIG, 3);
 
 #ifndef DEFAULT_RX_TYPE
 #define DEFAULT_RX_TYPE   RX_TYPE_NONE
+#endif
+
+#ifndef DEFAULT_RSSI_TYPE
+#define DEFAULT_RSSI_TYPE   RSSI_TYPE_NONE
+#endif
+
+#ifndef DEFAULT_LINK_QUALITY_TYPE
+#define DEFAULT_LINK_QUALITY_TYPE   LINK_QUALITY_TYPE_NONE
 #endif
 
 #define RX_MIDRC 1500
@@ -115,12 +126,26 @@ PG_RESET_TEMPLATE(rxConfig_t, rxConfig,
     .mincheck = 1100,
     .maxcheck = 1900,
     .rx_min_usec = RX_MIN_USEX,          // any of first 4 channels below this value will trigger rx loss detection
-    .rx_max_usec = 2115,         // any of first 4 channels above this value will trigger rx loss detection
-    .rssi_channel = 0,
-    .rssi_scale = RSSI_SCALE_DEFAULT,
-    .rssiInvert = 0,
+    .rx_max_usec = 2115,                 // any of first 4 channels above this value will trigger rx loss detection
     .rcSmoothing = 1,
 );
+
+PG_RESET_TEMPLATE(rssiConfig_t, rssiConfig,
+    .rssiType = DEFAULT_RSSI_TYPE,
+    .rssiChannel = 0,
+    .rssiChannelLow = PWM_RANGE_MIN,
+    .rssiChannelHigh = PWM_RANGE_MAX,
+    .rssiAdcLow = RSSI_ADC_CENTIVOLT_MIN,
+    .rssiAdcHigh = RSSI_ADC_CENTIVOLT_MAX
+);
+
+PG_RESET_TEMPLATE(linkQualityConfig_t, linkQualityConfig,
+    .linkQualityType = DEFAULT_LINK_QUALITY_TYPE,
+    .linkQualityChannel = 0,
+    .linkQualityChannelLow = PWM_RANGE_MIN,
+    .linkQualityChannelHigh = PWM_RANGE_MAX
+);
+
 
 void resetAllRxChannelRangeConfigurations(void)
 {
@@ -435,61 +460,113 @@ void parseRcChannels(const char *input)
     }
 }
 
-#ifdef USE_RX_ELERES
-static bool updateRSSIeleres(uint32_t currentTime)
-{
-    UNUSED(currentTime);
-    rssi = eleresRssi();
-    return true;
-}
-#endif // USE_RX_ELERES
+#ifndef SWAP
+#define SWAP(type,a,b) { type temp=(a);(a)=(b);(b)=temp; }
+#endif
 
-static bool updateRSSIPWM(void)
+// Scale and constrain an rssi value to 0 to 1024 range
+uint16_t scale_and_constrain_for_rssi_or_link_quality(uint32_t current_value, uint32_t low_range_value, uint32_t high_range_value)
+{    
+    uint32_t value_range = abs(high_range_value - low_range_value);
+    if (value_range == 0) {
+        // User range isn't meaningful, return 0 for RSSI (and avoid divide by zero)
+        return 0;
+    }
+    // Automatically detect and accomodate inverted ranges
+    bool range_is_inverted = (high_range_value < low_range_value);
+    // Constrain to the possible range - values outside are clipped to ends 
+    current_value = constrain(current_value,
+                              range_is_inverted ? high_range_value : low_range_value,
+                              range_is_inverted ? low_range_value : high_range_value);
+
+    if (range_is_inverted) {
+        // Swap values so we can treat them as low->high uniformly in the code that follows
+        current_value = high_range_value + abs(current_value - low_range_value);
+        SWAP(uint32_t, low_range_value, high_range_value);
+    }
+
+    // Scale the value down to a 0 - 1024 range
+    uint32_t value_scaled = (((float)current_value - (float)low_range_value) / (float)value_range) * 1024;
+    // Make absolutely sure the value is clipped to the 0 - 1024 range. This should handle things if the
+    // value retrieved falls outside the user-supplied range.
+    return constrain(value_scaled, 0, 1024);
+}
+
+static void updateRSSIPWM(void)
 {
     int16_t pwmRssi = 0;
+    int8_t rssiChannel = rssiConfig()->rssiChannel;
     // Read value of AUX channel as rssi
-    pwmRssi = rcData[rxConfig()->rssi_channel - 1];
+    pwmRssi = rcData[rssiChannel - 1];
 
     // Range of rawPwmRssi is [1000;2000]. rssi should be in [0;1023];
-    rssi = (uint16_t)((constrain(pwmRssi - 1000, 0, 1000) / 1000.0f) * 1023.0f);
-
-    return true;
+    rssi = scale_and_constrain_for_rssi_or_link_quality(pwmRssi, rssiConfig()->rssiChannelLow, rssiConfig()->rssiChannelHigh);
 }
 
 #define RSSI_ADC_SAMPLE_COUNT 16
+#define RSSI_CENTIVOLT_RATIO 0.0805664063
 
-static bool updateRSSIADC(timeUs_t currentTimeUs)
+static void updateRSSIADC(timeUs_t currentTimeUs)
 {
 #ifndef USE_ADC
     UNUSED(currentTimeUs);
-    return false;
+    rssi = 0;
 #else
     static uint16_t adcRssiSamples[RSSI_ADC_SAMPLE_COUNT];
     static uint16_t adcRssiSampleIndex = 0;
     static timeUs_t rssiUpdateAtUs = 0;
 
     if ((int32_t)(currentTimeUs - rssiUpdateAtUs) < 0) {
-        return false;
+        return;
     }
     rssiUpdateAtUs = currentTimeUs + DELAY_50_HZ;
 
     adcRssiSampleIndex = (adcRssiSampleIndex + 1) % RSSI_ADC_SAMPLE_COUNT;
     adcRssiSamples[adcRssiSampleIndex] = adcGetChannel(ADC_RSSI);
 
-    uint32_t adcRssiMean = 0;
+    int32_t adcRssiMean = 0;
     for (int sampleIndex = 0; sampleIndex < RSSI_ADC_SAMPLE_COUNT; sampleIndex++) {
         adcRssiMean += adcRssiSamples[sampleIndex];
     }
 
-    rssi = (adcRssiMean / RSSI_ADC_SAMPLE_COUNT) / 4;    // Reduce to [0;1023]
-    return true;
+    // Range = 0 to 330 (3.3 volts)
+    int16_t rssiInCentivolts = (adcRssiMean / RSSI_ADC_SAMPLE_COUNT) * RSSI_CENTIVOLT_RATIO;
+    // Constrain and convert to 0..1023
+    rssi = scale_and_constrain_for_rssi_or_link_quality(rssiInCentivolts, rssiConfig()->rssiAdcLow, rssiConfig()->rssiAdcHigh);
 #endif
 }
 
+
+static void updateRSSIeleres(timeUs_t currentTimeUs)
+{
+    UNUSED(currentTimeUs);
+#ifdef USE_RX_ELERES
+    rssi = eleresRssi();
+#else
+    rssi = 0;
+#endif // USE_RX_ELERES
+}
+
+
+static void updateRSSIMavlinkRadio()
+{
+    // TODO - some kind of check that we are actually using Mavlink radio?
+#ifdef USE_RX_ELERES
+    rssi = mavlinkRadioRssi();
+#else
+    rssi = 0;
+#endif // USE_RX_ELERES
+}
+
+
+
+
+
+// Original updateRSSI routine
+
+/*
 void updateRSSI(timeUs_t currentTimeUs)
 {
-    bool rssiUpdated = false;
-
     // Read RSSI
     if (rxConfig()->rssi_channel > 0) {
         rssiUpdated = updateRSSIPWM();
@@ -507,13 +584,102 @@ void updateRSSI(timeUs_t currentTimeUs)
             rssi = 1023 - rssi;
         }
 
-        // Apply scaling
-        debug[0] = rssi;
-        debug[1] = rxConfig()->rssi_scale;
-        rssi = constrain((uint32_t)rssi * rxConfig()->rssi_scale / 100, 0, 1023);
-        debug[2] = rssi;
+    // Apply scaling
+    rssi = constrain((uint32_t)rssi * rxConfig()->rssi_scale / 100, 0, 1023);
+}
+*/
+
+
+
+void updateRSSI(timeUs_t currentTimeUs)
+{
+    switch (rssiConfig()->rssiType) {
+        case RSSI_TYPE_ADC:
+            updateRSSIADC(currentTimeUs);
+            break;
+
+        case RSSI_TYPE_RC_CHANNEL:
+            updateRSSIPWM();
+            break;
+
+        case RSSI_TYPE_ELERES:
+            updateRSSIeleres(currentTimeUs);
+            break;
+
+        case RSSI_TYPE_MAVLINK_RADIO:
+            updateRSSIMavlinkRadio();
+            break;
+
+        case RSSI_TYPE_NONE:
+        default:
+            // Clear both value to 0
+            rssi = 0;
+            break;
     }
 }
+
+
+// Link Quality
+// ============
+
+
+
+static void updateLinkQualitySpektrumSatFade(timeUs_t currentTimeUs)
+{
+    UNUSED(currentTimeUs);
+#ifdef USE_SERIALRX_SPEKTRUM
+    uint16_t currentSpektrumFadeCount = spektrumGetFadeCount();
+    // TODO-- Constrain with values; just raw here as placeholder to start
+    link_quality = currentSpektrumFadeCount;
+#else
+    link_quality = 0;
+#endif
+}
+
+static void updateLinkQualityPWM(void)
+{
+    int16_t pwmLinkQuality = 0;
+    int8_t linkQualityChannel = linkQualityConfig()->linkQualityChannel;
+    // Read value of AUX channel as rssi
+    pwmLinkQuality = rcData[linkQualityChannel - 1];
+
+    // Range of rawPwmRssi is [1000;2000]. rssi should be in [0;1023];
+    link_quality = scale_and_constrain_for_rssi_or_link_quality(pwmLinkQuality, linkQualityConfig()->linkQualityChannelLow, linkQualityConfig()->linkQualityChannelHigh);
+}
+
+
+void updateLinkQuality(timeUs_t currentTimeUs)
+{
+    // TO DO 
+    currentTimeUs = currentTimeUs + 0;
+
+    switch (linkQualityConfig()->linkQualityType) {
+
+        case LINK_QUALITY_TYPE_RC_CHANNEL:
+            updateLinkQualityPWM();
+            break;
+
+        case LINK_QUALITY_TYPE_SPEKTRUM_SAT_FADE:
+            updateLinkQualitySpektrumSatFade(currentTimeUs);
+            break;
+
+        case LINK_QUALITY_TYPE_SBUS_PACKET_DROP:
+            // TODO
+            break;
+
+        case LINK_QUALITY_TYPE_ELERES:
+            // TODO
+            break;
+
+        case LINK_QUALITY_TYPE_NONE:
+        default:
+            // Clear value to 0
+            link_quality = 0;
+            break;
+    }
+}
+
+
 
 uint16_t rxGetRefreshRate(void)
 {

@@ -48,6 +48,9 @@
 #define DELAY_10_HZ (1000000 / 10)
 #define DELAY_5_HZ (1000000 / 5)
 
+#define RSSI_ADC_CENTIVOLT_MIN 0
+#define RSSI_ADC_CENTIVOLT_MAX 330
+
 typedef enum {
     RX_FRAME_PENDING = 0,               // No new data available from receiver
     RX_FRAME_COMPLETE = (1 << 0),       // There is new data available
@@ -76,6 +79,23 @@ typedef enum {
     SERIALRX_JETIEXBUS = 8,
     SERIALRX_CRSF = 9
 } rxSerialReceiverType_e;
+
+typedef enum {
+    RSSI_TYPE_NONE               = 0,
+    RSSI_TYPE_ADC                = 1,
+    RSSI_TYPE_RC_CHANNEL         = 2,
+    RSSI_TYPE_ELERES             = 3,
+    RSSI_TYPE_MAVLINK_RADIO      = 4,
+} rssiType_e;
+
+typedef enum {
+    LINK_QUALITY_TYPE_NONE                = 0,
+    LINK_QUALITY_TYPE_RC_CHANNEL          = 1,
+    LINK_QUALITY_TYPE_SPEKTRUM_SAT_FADE   = 2,
+    LINK_QUALITY_TYPE_SBUS_PACKET_DROP    = 3,
+    LINK_QUALITY_TYPE_ELERES              = 4,
+    LINK_QUALITY_TYPE_MAVLINK_RADIO       = 5
+} linkQualityType_e;
 
 #define MAX_SUPPORTED_RC_PPM_CHANNEL_COUNT          16
 #define MAX_SUPPORTED_RC_PARALLEL_PWM_CHANNEL_COUNT  8
@@ -117,9 +137,11 @@ typedef struct rxConfig_s {
     uint8_t rx_spi_rf_channel_count;
     uint8_t spektrum_sat_bind;              // number of bind pulses for Spektrum satellite receivers
     uint8_t spektrum_sat_bind_autoreset;    // whenever we will reset (exit) binding mode after hard reboot
-    uint8_t rssi_channel;
-    uint8_t rssi_scale;
-    uint8_t rssiInvert;
+
+// REMOVE once done
+//    uint8_t rssi_scale;
+//    uint8_t rssiInvert;
+    
     uint16_t midrc;                         // Some radios have not a neutral point centered on 1500. can be changed here
     uint16_t mincheck;                      // minimum rc end
     uint16_t maxcheck;                      // maximum rc end
@@ -129,6 +151,26 @@ typedef struct rxConfig_s {
 } rxConfig_t;
 
 PG_DECLARE(rxConfig_t, rxConfig);
+
+typedef struct rssiConfig_s {
+    uint8_t rssiType;
+    uint8_t rssiChannel;
+    uint16_t rssiChannelLow;
+    uint16_t rssiChannelHigh;
+    uint16_t rssiAdcLow;
+    uint16_t rssiAdcHigh;
+} rssiConfig_t;
+
+PG_DECLARE(rssiConfig_t, rssiConfig);
+
+typedef struct linkQualityConfig_s {
+    uint8_t linkQualityType;
+    uint8_t linkQualityChannel;
+    uint16_t linkQualityChannelLow;
+    uint16_t linkQualityChannelHigh;
+} linkQualityConfig_t;
+
+PG_DECLARE(linkQualityConfig_t, linkQualityConfig);
 
 #define REMAPPABLE_CHANNEL_COUNT (sizeof(((rxConfig_t *)0)->rcmap) / sizeof(((rxConfig_t *)0)->rcmap[0]))
 
