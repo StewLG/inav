@@ -1880,31 +1880,44 @@ void updateActualHeading(bool headingValid, int32_t newHeading)
     posControl.flags.headingDataNew = 1;
 }
 
-/*-----------------------------------------------------------
+/*----------------------------------------------------------------------------------------------
  * Returns pointer to currently used position (ABS or AGL) depending on surface tracking status
- *-----------------------------------------------------------*/
+ *---------------------------------------------------------------------------------------------*/
 const navEstimatedPosVel_t * navGetCurrentActualPositionAndVelocity(void)
 {
     return posControl.flags.isTerrainFollowEnabled ? &posControl.actualState.agl : &posControl.actualState.abs;
 }
 
-/*-----------------------------------------------------------
- * Calculates distance and bearing to destination point
- *-----------------------------------------------------------*/
-uint32_t calculateDistanceToDestination(const fpVector3_t * destinationPos)
+/*----------------------------------------------
+ * Calculate distance and bearing between points
+ *---------------------------------------------*/
+
+// Calculate distance between points in centimeters
+uint32_t calculateDistanceBetweenPoints(const fpVector3_t * startPos, const fpVector3_t * endPos)
 {
-    const float deltaX = destinationPos->x - navGetCurrentActualPositionAndVelocity()->pos.x;
-    const float deltaY = destinationPos->y - navGetCurrentActualPositionAndVelocity()->pos.y;
+    const float deltaX = endPos->x - startPos->x;
+    const float deltaY = endPos->y - startPos->y;
 
     return sqrtf(sq(deltaX) + sq(deltaY));
 }
 
-int32_t calculateBearingToDestination(const fpVector3_t * destinationPos)
+uint32_t calculateDistanceToDestination(const fpVector3_t * destinationPos)
 {
-    const float deltaX = destinationPos->x - navGetCurrentActualPositionAndVelocity()->pos.x;
-    const float deltaY = destinationPos->y - navGetCurrentActualPositionAndVelocity()->pos.y;
+    return calculateDistanceBetweenPoints(&navGetCurrentActualPositionAndVelocity()->pos, destinationPos);
+}
+
+// Get bearing between points in centidegrees
+int32_t calculateBearingBetweenPoints(const fpVector3_t * startPos, const fpVector3_t * endPos)
+{
+    const float deltaX = endPos->x - startPos->x;
+    const float deltaY = endPos->y - startPos->y;
 
     return wrap_36000(RADIANS_TO_CENTIDEGREES(atan2_approx(deltaY, deltaX)));
+}
+
+int32_t calculateBearingToDestination(const fpVector3_t * destinationPos)
+{
+    return calculateBearingBetweenPoints(&navGetCurrentActualPositionAndVelocity()->pos, destinationPos);
 }
 
 /*-----------------------------------------------------------

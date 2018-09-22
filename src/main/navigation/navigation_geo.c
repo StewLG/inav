@@ -133,7 +133,7 @@ float geoCalculateMagDeclination(const gpsLocation_t * llh) // degrees units
 }
 #endif
 
-void geoSetOrigin(gpsOrigin_s * origin, const gpsLocation_t * llh, geoOriginResetMode_e resetMode)
+void geoSetOrigin(gpsOrigin_s * origin, const gpsLocation_t * llh, const geoOriginResetMode_e resetMode)
 {
     if (resetMode == GEO_ORIGIN_SET) {
         origin->valid = true;
@@ -147,7 +147,7 @@ void geoSetOrigin(gpsOrigin_s * origin, const gpsLocation_t * llh, geoOriginRese
     }
 }
 
-void geoConvertGeodeticToLocal(gpsOrigin_s * origin, const gpsLocation_t * llh, fpVector3_t * pos, geoAltitudeConversionMode_e altConv)
+void geoConvertGeodeticToLocal(const gpsOrigin_s * origin, const gpsLocation_t * llh, fpVector3_t * pos, const geoAltitudeConversionMode_e altConv)
 {
     if (origin->valid) {
         pos->x = (llh->lat - origin->lat) * DISTANCE_BETWEEN_TWO_LONGITUDE_POINTS_AT_EQUATOR;

@@ -84,6 +84,9 @@ tables:
   - name: osd_sidebar_scroll
     values: ["NONE", "ALTITUDE", "GROUND_SPEED", "HOME_DISTANCE"]
     enum: osd_sidebar_scroll_e
+  - name: osd_map_scale_zoom_mode
+    values: ["ABSOLUTE", "AUTO_RELATIVE", "AUTO_RELATIVE_WITH_HOLD"]
+    enum: osd_map_scale_zoom_mode_e
   - name: nav_rth_allow_landing
     values: ["NEVER", "ALWAYS", "FS_ONLY"]
     enum: navRTHAllowLanding_e
@@ -1574,6 +1577,46 @@ groups:
         field: estimations_wind_compensation
         type: bool
 
+      - name: osd_map_min_zoom_scale_in_centimeters
+        field: map_min_zoom_scale_in_centimeters
+        type: uint32_t
+        min: 1
+        max: UINT32_MAX
+      - name: osd_map_max_zoom_scale_in_centimeters
+        field: map_max_zoom_scale_in_centimeters
+        type: uint32_t
+        min: 1
+        max: UINT32_MAX
+      - name: osd_map_scale_adjustment_rc_channel
+        field: map_scale_adjustment_rc_channel
+        type: uint8_t
+        min: 0
+        max: MAX_SUPPORTED_RC_CHANNEL_COUNT
+      - name: osd_map_scale_adjustment_auto_range_pwm_min
+        field: map_scale_adjustment_auto_range_pwm_min
+        type: uint16_t
+        min: PWM_RANGE_MIN
+        max: PWM_RANGE_MAX
+      - name: osd_map_scale_adjustment_auto_range_pwm_max
+        field: map_scale_adjustment_auto_range_pwm_max
+        type: uint16_t
+        min: PWM_RANGE_MIN
+        max: PWM_RANGE_MAX
+      - name: osd_map_scale_zoom_mode
+        field: map_scale_zoom_mode
+        type: uint8_t
+        table: osd_map_scale_zoom_mode
+      - name: osd_map_h_margin
+        field: map_h_margin
+        type: uint8_t
+        min: 1
+        max: 12
+      - name: osd_map_v_margin
+        field: map_v_margin
+        type: uint8_t
+        min: 1
+        max: 4
+      
   - name: PG_SYSTEM_CONFIG
     type: systemConfig_t
     headers: ["fc/config.h"]
@@ -1694,3 +1737,20 @@ groups:
         min: VTX_SETTINGS_MIN_FREQUENCY_MHZ
         max: VTX_SETTINGS_MAX_FREQUENCY_MHZ
         condition: VTX_SETTINGS_FREQCMD
+
+  - name: PG_OTHER_CRAFT_CONFIG
+    type: otherCraftConfig_t
+    headers: ["io/other_craft.h"]
+    condition: USE_NAV
+    members:
+      - name: othercraft_msp_should_send_craft_positions
+        field: msp_should_send_craft_positions
+        type: bool
+      - name: othercraft_stale_interval_in_milliseconds
+        field: stale_interval_in_milliseconds
+        min: 0
+        max: UINT32_MAX
+      - name: othercraft_expire_interval_in_milliseconds
+        field: expire_interval_in_milliseconds
+        min: 0
+        max: UINT32_MAX 

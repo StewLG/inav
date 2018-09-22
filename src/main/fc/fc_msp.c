@@ -77,6 +77,7 @@
 #include "io/rangefinder.h"
 #include "io/ledstrip.h"
 #include "io/osd.h"
+#include "io/other_craft.h"
 #include "io/serial.h"
 #include "io/serial_4way.h"
 #include "io/vtx.h"
@@ -1357,6 +1358,13 @@ static bool mspFcProcessOutCommand(uint16_t cmdMSP, sbuf_t *dst, mspPostProcessF
                 sbufWriteU8(dst, timerHardware[i].usageFlags);
         break;
 
+    // We got a request for our Other Craft settings
+    case MSP2_INAV_OTHER_CRAFT_POSITION_SETTING:
+        sbufWriteU8(dst, otherCraftConfig()->msp_should_send_craft_positions);
+        sbufWriteU32(dst, otherCraftConfig()->stale_interval_in_milliseconds);
+        sbufWriteU32(dst, otherCraftConfig()->expire_interval_in_milliseconds);
+        break;
+
     default:
         return false;
     }
@@ -2536,6 +2544,56 @@ static mspResult_e mspFcProcessInCommand(uint16_t cmdMSP, sbuf_t *src)
                 setConfigBatteryProfileAndWriteEEPROM(tmp_u8);
         }
         break;
+
+
+
+
+    case MSP2_INAV_OTHER_CRAFT_POSITION:
+    {
+#ifdef USE_NAV
+        otherCraftPosition_t newCraftPosition;
+        // Unique Flight Controller UID (Processor ID)
+        sbufReadU32Safe(&newCraftPosition.UID_0, src);
+        sbufReadU32Safe(&newCraftPosition.UID_1, src);
+        sbufReadU32Safe(&newCraftPosition.UID_2, src);
+
+        // Position information
+        sbufReadU8Safe(&newCraftPosition.FixType, src);
+        sbufReadU8Safe(&newCraftPosition.NumSat, src);
+        sbufReadU32Safe((uint32_t*)&newCraftPosition.LLH.lat, src);
+        sbufReadU32Safe((uint32_t*)&newCraftPosition.LLH.lon, src);
+        // TODO - not expecting to need to cast. Do we need to translate meters (16 bit) to cenimbeters (32 bit, meters * 100)?
+        sbufReadU16Safe((uint16_t*)&newCraftPosition.LLH.alt, src);
+        sbufReadU16Safe(&newCraftPosition.Speed, src);
+        sbufReadU16Safe(&newCraftPosition.GroundCourseInDecidegrees, src);
+
+        // Craft Name
+        const unsigned int lengthOfRemainingMessageWithCraftName = sbufBytesRemaining(src);
+        if (lengthOfRemainingMessageWithCraftName <= MAX_NAME_LENGTH) {
+            char * pCraftName = (char*)newCraftPosition.CraftName;
+            int craftNameLength = MIN(MAX_NAME_LENGTH, (int)lengthOfRemainingMessageWithCraftName);
+            sbufReadData(src, pCraftName, craftNameLength);
+            memset(&pCraftName[craftNameLength], '\0', (MAX_NAME_LENGTH + 1) - craftNameLength);
+        } else {
+            // Craft Name too long
+            return MSP_RESULT_ERROR;
+        }
+
+        // Set Timestamp so we can track the age of Craft Position
+        // values and expire/indicate when things go stale.
+        newCraftPosition.timeInMillsecondsLastUpdated = millis();
+		// If we just updated, it isn't stale yet
+		newCraftPosition.IsStale = false;
+
+        // Update stored Craft position for use by GUI, navigation, etc.
+        updateCraftPosition(&newCraftPosition);
+
+
+#endif // USE_NAV
+    }
+    break;
+     
+
 
     default:
         return MSP_RESULT_ERROR;

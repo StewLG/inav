@@ -18,9 +18,15 @@
 #pragma once
 
 #include "common/time.h"
+#include "common/vector.h"
+
 #include "config/parameter_group.h"
 
 #include "drivers/vcd.h"
+
+#include "io/other_craft.h"
+
+#include "navigation/navigation_pos_estimator_private.h"
 
 #ifndef OSD_ALTERNATE_LAYOUT_COUNT
 #define OSD_ALTERNATE_LAYOUT_COUNT 3
@@ -147,6 +153,15 @@ typedef enum {
     OSD_SIDEBAR_SCROLL_HOME_DISTANCE,
 } osd_sidebar_scroll_e;
 
+typedef enum {
+    // Map scale zooming is absolute within the defined min/max scale osd_map_min_zoom_scale_in_centimeters - osd_map_max_zoom_scale_in_centimeters
+    OSD_MAP_SCALE_ZOOM_MODE_ABSOLUTE,
+    // Map scale zooming is relative to the current value of auto    
+    OSD_MAP_SCALE_ZOOM_MODE_AUTO_RELATIVE,
+    // Map scale zooming is relative to the current value of auto, but auto value only updated when actually in auto range
+    OSD_MAP_SCALE_ZOOM_MODE_AUTO_RELATIVE_WITH_HOLD,
+} osd_map_scale_zoom_mode_e;
+
 typedef struct osdConfig_s {
     // Layouts
     uint16_t item_pos[OSD_LAYOUT_COUNT][OSD_ITEM_COUNT];
@@ -174,7 +189,67 @@ typedef struct osdConfig_s {
 
     bool    estimations_wind_compensation; // use wind compensation for estimated remaining flight/distance
     uint8_t coordinate_digits;
+
+    // Map configuration settings
+    uint32_t map_min_zoom_scale_in_centimeters;
+    uint32_t map_max_zoom_scale_in_centimeters;
+    uint8_t map_scale_adjustment_rc_channel;
+    uint16_t map_scale_adjustment_auto_range_pwm_min;
+    uint16_t map_scale_adjustment_auto_range_pwm_max;
+    uint8_t map_scale_zoom_mode;  // from osd_map_scale_zoom_mode_e
+    uint8_t map_h_margin;
+    uint8_t map_v_margin;
 } osdConfig_t;
+
+extern uint8_t otherCraftCount;
+extern otherCraftPosition_t otherCraftsToTrack[MAX_OTHER_CRAFTS_TO_TRACK];
+
+ extern navigationPosEstimator_t posEstimator;
+
+// The maximum number of OSD elements we can display at one time.
+// (Maximum nubmer of crafts + 1 for special symbol [home/other craft])
+#define MAX_OSD_ELEMENTS (MAX_OTHER_CRAFTS_TO_TRACK + 1)
+
+typedef enum {
+    // Draws a home icon
+    OSD_MAP_ELEMENT_DISPLAY_TYPE_HOME_ICON,
+	// Draws symbol representing self-craft.
+	OSD_MAP_ELEMENT_DISPLAY_TYPE_SELF_CRAFT,
+    // Draws a rotated arrow corresponding to Craft heading.
+    OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT
+    // Other types are conceivable - numbered waypoints, for example?
+} osd_map_element_display_type_e;
+
+
+typedef struct osdMapElement_s {
+    osd_map_element_display_type_e osdMapElementDisplayType;
+    uint32_t poiDistanceInCentimeters;
+    // Absolute direction to the map element; 0 = north
+    int32_t poiDirectionInCentidegrees;    
+    // relative direction to the map element, from the center of the map's perspective      
+    int32_t relativePoiDirectionInCentidegrees; 
+    // Absolute heading of the map element; 0 = north. This is the direction the craft is facing, if relevant, otherwise 0. 
+	// TODO - Remove? Not actually needed? Here in the short term for debugging at least.
+    int32_t absoluteHeadingInCentidegrees;      
+    // Relative heading of the map element, from the center of the map's perspective. If not relevant to the map element this is 0.
+    int32_t relativeHeadingInCentidegrees;
+    float poiSin;
+    float poiCos;
+    // The value of the symbol/character for the on-screen OSD byte
+    uint16_t drawn;
+	// Set to true when this OSD element is "stale", and should be shown to be a uncertain position in the display.
+	bool DisplayAsStale;
+} osdMapElement_t;
+
+typedef struct osdScreenSetup_s {
+    uint8_t minX;
+    uint8_t maxX;
+    uint8_t minY;
+    uint8_t maxY;
+    uint8_t midX;
+    uint8_t midY;
+} osdScreenSetup_t;
+
 
 PG_DECLARE(osdConfig_t, osdConfig);
 
@@ -186,3 +261,6 @@ void osdStartFullRedraw(void);
 // to -1 to disable the override.
 void osdOverrideLayout(int layout);
 bool osdItemIsFixed(osd_items_e item);
+void eraseSingleMapElementFromDisplay(osdMapElement_t * pOsdMapElements, int mapElementIndex);
+void eraseAllMapElementsFromDisplay(osdMapElement_t * pOsdMapElements, int osdMapElementCount);
+uint8_t osdGetRotatedArrowCharacter(int rotationInDegrees);

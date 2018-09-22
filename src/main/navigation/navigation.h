@@ -371,8 +371,8 @@ typedef enum {
     GEO_ORIGIN_RESET_ALTITUDE
 } geoOriginResetMode_e;
 
-void geoSetOrigin(gpsOrigin_s * origin, const gpsLocation_t * llh, geoOriginResetMode_e resetMode);
-void geoConvertGeodeticToLocal(gpsOrigin_s * origin, const gpsLocation_t * llh, fpVector3_t * pos, geoAltitudeConversionMode_e altConv);
+void geoSetOrigin(gpsOrigin_s * origin, const gpsLocation_t * llh, const geoOriginResetMode_e resetMode);
+void geoConvertGeodeticToLocal(const gpsOrigin_s * origin, const gpsLocation_t * llh, fpVector3_t * pos, const geoAltitudeConversionMode_e altConv);
 void geoConvertLocalToGeodetic(const gpsOrigin_s * origin, const fpVector3_t * pos, gpsLocation_t * llh);
 float geoCalculateMagDeclination(const gpsLocation_t * llh); // degrees units
 

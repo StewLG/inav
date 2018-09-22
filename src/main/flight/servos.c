@@ -28,6 +28,7 @@
 #include "common/axis.h"
 #include "common/filter.h"
 #include "common/maths.h"
+#include "common/utils.h"
 
 #include "config/config_reset.h"
 #include "config/feature.h"
@@ -361,7 +362,7 @@ void processServoAutotrim(void)
                     break;
                 }
                 // Fallthru
-
+                FALLTHROUGH;
             case AUTOTRIM_COLLECTING:
                 if (ARMING_FLAG(ARMED)) {
                     servoMiddleAccumCount++;
