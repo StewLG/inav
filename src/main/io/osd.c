@@ -1097,7 +1097,7 @@ uint32_t mapScaleAdjustmentFromZoomChannel(uint32_t currentAutoScale)
         static uint32_t storedAutoScaleForHold = 0;
         static bool hasAutoScaleBeenStoredForHold = false;
 
-        uint16_t rcChannelValue = rcData[osdConfig()->map_scale_adjustment_rc_channel];
+        uint16_t rcChannelValue = rcData[osdConfig()->map_scale_adjustment_rc_channel - 1];
 		// Clip to min/max
 		rcChannelValue = clipRcChannelValueToMinMax(rcChannelValue);
 
