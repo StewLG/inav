@@ -975,18 +975,25 @@ static uint32_t CalculateFittingScaleForSingleElement_NEW(osdScreenSetup_t * pOs
 	// But I don't see any problems with this right now in dry static testing so I'm going to hold off.
 }
 
+// Not sure why I was hacking about here, but we need to be consistent about this value, so
+// pulling it from the user config thig.
 
-const uint32_t minZoomScaleInCentimeters = 1000; // 10 meters, yes?
-//const uint32_t maxZoomScaleInCentimeters = 10000000; // 100 KM, yes?
-// Hacking about, still confused about what scale really IS.
-const uint32_t maxZoomScaleInCentimeters = 100000;
+//const uint32_t minZoomScaleInCentimeters = 1000; // 10 meters, yes?
+////const uint32_t maxZoomScaleInCentimeters = 10000000; // 100 KM, yes?
+//// Hacking about, still confused about what scale really IS.
+//const uint32_t maxZoomScaleInCentimeters = 100000;
 
 // Clip to min/max RC values. Keeps the range between 1000 and 2000 for
 // simplicity.
 uint32_t clipScaleToMinMax(uint32_t scaleToClip)
 {
-	scaleToClip = MAX(scaleToClip, minZoomScaleInCentimeters);
-	scaleToClip = MIN(scaleToClip, maxZoomScaleInCentimeters);
+
+/*
+osdConfig()->map_min_zoom_scale_in_centimeters
+*/
+
+	scaleToClip = MAX(scaleToClip, osdConfig()->map_min_zoom_scale_in_centimeters);
+	scaleToClip = MIN(scaleToClip, osdConfig()->map_max_zoom_scale_in_centimeters);
 	return scaleToClip;
 }
 
@@ -1033,12 +1040,18 @@ uint32_t getMapScaleForAutoRelativeModes(uint32_t currentActualAutoScale,
 {
 	uint32_t adjustedScale = 0;
 
-    if (rcChannelValue < osdConfig()->map_scale_adjustment_auto_range_pwm_min) {
+    uint32_t minMapZoomScaleInCm = osdConfig()->map_min_zoom_scale_in_centimeters;
+    uint32_t maxMapZoomScaleInCm = osdConfig()->map_max_zoom_scale_in_centimeters;
+
+    uint16_t minMapScaleAdjustmentAutoRangePwm = osdConfig()->map_scale_adjustment_auto_range_pwm_min;
+    uint16_t maxMapScaleAdjustmentAutoRangePwm = osdConfig()->map_scale_adjustment_auto_range_pwm_max;
+
+    if (rcChannelValue < minMapScaleAdjustmentAutoRangePwm) {
         // If we are beneath the Auto range, scale the channel value to be between the minZoomScaleInCentimeters and the current (possibly hold) Auto value.
-		adjustedScale = minZoomScaleInCentimeters + (((currentAutoScaleToUseInAutoRelativeModes - osdConfig()->map_min_zoom_scale_in_centimeters) * (rcChannelValue - PWM_RANGE_MIN)) / (osdConfig()->map_scale_adjustment_auto_range_pwm_min  - PWM_RANGE_MIN));
-    } else if (rcChannelValue > osdConfig()->map_scale_adjustment_auto_range_pwm_max) {
+		adjustedScale = minMapZoomScaleInCm + (((currentAutoScaleToUseInAutoRelativeModes - minMapZoomScaleInCm) * (rcChannelValue - PWM_RANGE_MIN)) / (minMapScaleAdjustmentAutoRangePwm  - PWM_RANGE_MIN));
+    } else if (rcChannelValue > maxMapScaleAdjustmentAutoRangePwm) {
         // If we are above the Auto range, scale the channel value to be between the current (possibly hold) Auto value and maxZoomScaleInCentimeters
-		adjustedScale = currentAutoScaleToUseInAutoRelativeModes + (((osdConfig()->map_max_zoom_scale_in_centimeters - currentAutoScaleToUseInAutoRelativeModes) * (rcChannelValue - osdConfig()->map_scale_adjustment_auto_range_pwm_max)) / (PWM_RANGE_MAX - osdConfig()->map_scale_adjustment_auto_range_pwm_max));
+		adjustedScale = currentAutoScaleToUseInAutoRelativeModes + (((maxMapZoomScaleInCm - currentAutoScaleToUseInAutoRelativeModes) * (rcChannelValue - maxMapScaleAdjustmentAutoRangePwm)) / (PWM_RANGE_MAX - maxMapScaleAdjustmentAutoRangePwm));
     } else {
 		//  Just use the real auto-scale value.
 		adjustedScale = currentActualAutoScale;
@@ -1070,7 +1083,7 @@ uint32_t getMapScaleForAbsoluteZoomMode(uint32_t currentActualAutoScale,
     }
 	uint32_t maxZoomScaleCm = osdConfig()->map_max_zoom_scale_in_centimeters;
 	uint32_t minZoomScaleCm = osdConfig()->map_min_zoom_scale_in_centimeters;
-	uint32_t tmpResult = minZoomScaleInCentimeters + (((maxZoomScaleCm - minZoomScaleCm)  * currentPwmToUseInRatio) / totalAvailablePwmRange);
+	uint32_t tmpResult = minZoomScaleCm + (((maxZoomScaleCm - minZoomScaleCm) * currentPwmToUseInRatio) / totalAvailablePwmRange);
     return tmpResult;
 }
 
@@ -3210,8 +3223,8 @@ void pgResetFn_osdConfig(osdConfig_t *osdConfig)
     osdConfig->coordinate_digits = 9;
 
     // Map configuration settings defaults
-    osdConfig->map_min_zoom_scale_in_centimeters = 1000;
-    osdConfig->map_max_zoom_scale_in_centimeters = 750000;
+    osdConfig->map_min_zoom_scale_in_centimeters = 1000;    // 10 M
+    osdConfig->map_max_zoom_scale_in_centimeters = 1000000; // 10 KM in CM.
     osdConfig->map_scale_adjustment_rc_channel = 0;
     osdConfig->map_scale_adjustment_auto_range_pwm_min = 1400;
     osdConfig->map_scale_adjustment_auto_range_pwm_max = 1600;
