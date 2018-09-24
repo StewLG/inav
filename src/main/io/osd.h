@@ -220,6 +220,24 @@ typedef enum {
     // Other types are conceivable - numbered waypoints, for example?
 } osd_map_element_display_type_e;
 
+#define MAX_ADDITIONAL_POI_TEXT_LENGTH 8
+
+typedef struct osdMapElementXYInfo {
+    // X,Y position of MapElement
+    int poiX;
+    int poiY;
+    // Symbol character to be drawn there
+    uint8_t poiSymbol;    
+    // Do we have an additional string to draw?
+    bool hasAdditionalString;
+    // Additional characters to be drawn to right of 
+    // poiSymbol (e.g. relative altitude for other craft)
+    char additionalString[MAX_ADDITIONAL_POI_TEXT_LENGTH];
+    // Does this X,Y position fit on the actual screen?
+    bool foundFittingScale;
+    // Is this Map Element eligible to be drawn?
+    bool eligibleToBeDrawn;
+} osdMapElementXYInfo_t;
 
 typedef struct osdMapElement_s {
     osd_map_element_display_type_e osdMapElementDisplayType;
@@ -237,8 +255,11 @@ typedef struct osdMapElement_s {
     float poiCos;
     // The value of the symbol/character for the on-screen OSD byte
     uint16_t drawn;
+    // Length of additional string (0 if no additional string)
+    uint8_t additionalStringLength;
 	// Set to true when this OSD element is "stale", and should be shown to be a uncertain position in the display.
-	bool DisplayAsStale;
+	bool displayAsStale;
+
 } osdMapElement_t;
 
 typedef struct osdScreenSetup_s {
@@ -250,7 +271,6 @@ typedef struct osdScreenSetup_s {
     uint8_t midY;
 } osdScreenSetup_t;
 
-
 PG_DECLARE(osdConfig_t, osdConfig);
 
 struct displayPort_s;
@@ -261,6 +281,12 @@ void osdStartFullRedraw(void);
 // to -1 to disable the override.
 void osdOverrideLayout(int layout);
 bool osdItemIsFixed(osd_items_e item);
-void eraseSingleMapElementFromDisplay(osdMapElement_t * pOsdMapElements, int mapElementIndex);
+//void eraseSingleMapElementFromDisplay(osdMapElement_t * pOsdMapElements, osdMapElementXYInfo_t * pOsdMapElementXYInfo, int mapElementIndex);
+//void eraseSingleMapElementFromDisplay(osdMapElement_t * pOsdMapElement, osdMapElementXYInfo_t * pOsdMapElementXYInfo);
+//void eraseAllMapElementsFromDisplay(osdMapElement_t * pOsdMapElements, osdMapElementXYInfo_t * pOsdMapElementXYInfos, int osdMapElementCount);
+//void eraseAllMapElementsFromDisplay(osdMapElement_t * pOsdMapElements, osdMapElementXYInfo_t * pOsdMapElementXYInfos, int osdMapElementCount);
+
+void eraseSingleMapElementFromDisplay(osdMapElement_t * pOsdMapElement);
 void eraseAllMapElementsFromDisplay(osdMapElement_t * pOsdMapElements, int osdMapElementCount);
+
 uint8_t osdGetRotatedArrowCharacter(int rotationInDegrees);
