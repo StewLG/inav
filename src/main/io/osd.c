@@ -975,23 +975,9 @@ static uint32_t CalculateFittingScaleForSingleElement_NEW(osdScreenSetup_t * pOs
 	// But I don't see any problems with this right now in dry static testing so I'm going to hold off.
 }
 
-// Not sure why I was hacking about here, but we need to be consistent about this value, so
-// pulling it from the user config thig.
-
-//const uint32_t minZoomScaleInCentimeters = 1000; // 10 meters, yes?
-////const uint32_t maxZoomScaleInCentimeters = 10000000; // 100 KM, yes?
-//// Hacking about, still confused about what scale really IS.
-//const uint32_t maxZoomScaleInCentimeters = 100000;
-
-// Clip to min/max RC values. Keeps the range between 1000 and 2000 for
-// simplicity.
+// Clip scale so it fits between user-defined map min & max zoom scales
 uint32_t clipScaleToMinMax(uint32_t scaleToClip)
 {
-
-/*
-osdConfig()->map_min_zoom_scale_in_centimeters
-*/
-
 	scaleToClip = MAX(scaleToClip, osdConfig()->map_min_zoom_scale_in_centimeters);
 	scaleToClip = MIN(scaleToClip, osdConfig()->map_max_zoom_scale_in_centimeters);
 	return scaleToClip;
@@ -1063,26 +1049,31 @@ uint32_t getMapScaleForAutoRelativeModes(uint32_t currentActualAutoScale,
 uint32_t getMapScaleForAbsoluteZoomMode(uint32_t currentActualAutoScale,
                                         uint16_t rcChannelValue)
 {
+    uint16_t minMapScaleAdjustmentAutoRangePwm = osdConfig()->map_scale_adjustment_auto_range_pwm_min;
+    uint16_t maxMapScaleAdjustmentAutoRangePwm = osdConfig()->map_scale_adjustment_auto_range_pwm_max;
+
     // The size of the range in PWM that the auto-range removes from the total pwm range of the channel
-    int pwmAutoRangeSize = (osdConfig()->map_scale_adjustment_auto_range_pwm_max - osdConfig()->map_scale_adjustment_auto_range_pwm_min);
+    int pwmAutoRangeSize = (maxMapScaleAdjustmentAutoRangePwm - minMapScaleAdjustmentAutoRangePwm);
     // How many PWM values are devoted to user-controlled zooming?
     int totalAvailablePwmRange = (PWM_RANGE_MAX - PWM_RANGE_MIN) - pwmAutoRangeSize;
     // When calculating the ratio, we have to compensate for the auto-range, and the easiest way to do
     // this is remove it from the math. So we adjust things so that the auto-range does not have to be
     // considered in the calcuation.
     int currentPwmToUseInRatio = 0;
-    if (rcChannelValue < osdConfig()->map_scale_adjustment_auto_range_pwm_min) {
+    if (rcChannelValue < minMapScaleAdjustmentAutoRangePwm) {
         // No need to remove the auto range if below the notch of the auto range
         currentPwmToUseInRatio = rcChannelValue - PWM_RANGE_MIN;
-    } else if (rcChannelValue > osdConfig()->map_scale_adjustment_auto_range_pwm_max) {
+    } else if (rcChannelValue > maxMapScaleAdjustmentAutoRangePwm) {
         // Remove the auto range from consideration if above it
         currentPwmToUseInRatio = rcChannelValue - pwmAutoRangeSize - PWM_RANGE_MIN;
     } else {
         // Misconfigured?
         return currentActualAutoScale;
     }
+
 	uint32_t maxZoomScaleCm = osdConfig()->map_max_zoom_scale_in_centimeters;
 	uint32_t minZoomScaleCm = osdConfig()->map_min_zoom_scale_in_centimeters;
+
 	uint32_t tmpResult = minZoomScaleCm + (((maxZoomScaleCm - minZoomScaleCm) * currentPwmToUseInRatio) / totalAvailablePwmRange);
     return tmpResult;
 }
@@ -1099,6 +1090,9 @@ uint16_t clipRcChannelValueToMinMax(uint16_t currentRcValue)
 // Apply any relvant scale adjustment applicable from the map scale RC channel
 uint32_t mapScaleAdjustmentFromZoomChannel(uint32_t currentAutoScale)
 {
+    uint16_t minMapScaleAdjustmentAutoRangePwm = osdConfig()->map_scale_adjustment_auto_range_pwm_min;
+    uint16_t maxMapScaleAdjustmentAutoRangePwm = osdConfig()->map_scale_adjustment_auto_range_pwm_max;
+
     // This routine assumes it can readily be misconfigured, and rather than
     // try to anticipate all the weird edge cases, reverts to the default
     // Auto zoom scale if it can't make sense of things.
@@ -1117,11 +1111,11 @@ uint32_t mapScaleAdjustmentFromZoomChannel(uint32_t currentAutoScale)
 		// If valid values haven't been set up for the auto range, we'll 
 		// behave as if there is no auto-range configured.
 
-		bool validAutoRangeConfigured = osdConfig()->map_scale_adjustment_auto_range_pwm_min >= PWM_RANGE_MIN && osdConfig()->map_scale_adjustment_auto_range_pwm_min <= PWM_RANGE_MAX &&
-										osdConfig()->map_scale_adjustment_auto_range_pwm_max >= PWM_RANGE_MIN && osdConfig()->map_scale_adjustment_auto_range_pwm_max <= PWM_RANGE_MAX &&
-										osdConfig()->map_scale_adjustment_auto_range_pwm_min < osdConfig()->map_scale_adjustment_auto_range_pwm_max;
+		bool validAutoRangeConfigured = minMapScaleAdjustmentAutoRangePwm >= PWM_RANGE_MIN && minMapScaleAdjustmentAutoRangePwm <= PWM_RANGE_MAX &&
+										maxMapScaleAdjustmentAutoRangePwm >= PWM_RANGE_MIN && maxMapScaleAdjustmentAutoRangePwm <= PWM_RANGE_MAX &&
+										minMapScaleAdjustmentAutoRangePwm < maxMapScaleAdjustmentAutoRangePwm;
         // Are we in the auto-range?
-        bool channelPwmValueCurrentlyInAuto = (rcChannelValue >= osdConfig()->map_scale_adjustment_auto_range_pwm_min && rcChannelValue <= osdConfig()->map_scale_adjustment_auto_range_pwm_max);
+        bool channelPwmValueCurrentlyInAuto = (rcChannelValue >= minMapScaleAdjustmentAutoRangePwm && rcChannelValue <= maxMapScaleAdjustmentAutoRangePwm);
 		// Use Auto value if we auto mode is configured properly and we are in the auto range in the channel.
         if (validAutoRangeConfigured && channelPwmValueCurrentlyInAuto) {
 			// Clear stored hold value (relevant for hold mode)
@@ -1211,7 +1205,7 @@ int getNeighborIndexForMultipleXYInSameLocation(osdMapElementXYInfo_t * pOsdMapE
 	}
 
 	// The relative index of the neighbor that gets to be visible this time through.
-	// If there are 3 possible map elements, 0, 1 or 2, no matter where they actually
+	// If there are 3 possible map elements, this would be 0, 1 or 2, no matter where they actually
 	// fall in the pOsdMapElementXYInfos array.
 	int relativeNeighborIndex = OSD_ALTERNATING_CHOICES(blinkIntervalInMilliseconds, neighborCount);
 
@@ -1363,7 +1357,7 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
 				// If there is more than one symbol at a given X,Y location, we display each possible symbol alternately, with a delay,
 				// so that all available symbols can be seen in turn, in a brief interval.
 				if (neighborCount > 1) {
-					// Here we choose which of the symbols at a single X,Y location should actually be drawn
+					// Here we choose which of the overlapping symbols at a single X,Y location should actually be drawn
 					osdMapElementXYIndexToDraw = getNeighborIndexForMultipleXYInSameLocation(osdMapElementXYInfos, osdMapElementXYCount, osdMapElementXYInfos[i].poiX, osdMapElementXYInfos[i].poiY, neighborCount);
 				}
                 // Write character to screen
