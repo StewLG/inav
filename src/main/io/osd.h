@@ -251,6 +251,8 @@ typedef struct osdMapElement_s {
     int32_t absoluteHeadingInCentidegrees;      
     // Relative heading of the map element, from the center of the map's perspective. If not relevant to the map element this is 0.
     int32_t relativeHeadingInCentidegrees;
+    // Altitude in centimeters (meters * 100)
+    int32_t altitudeInCentimeters; 
     float poiSin;
     float poiCos;
     // The value of the symbol/character for the on-screen OSD byte

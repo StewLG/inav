@@ -400,11 +400,11 @@ static void osdFormatWindSpeedStr(char *buff, int32_t ws, bool isValid)
 * prefixed by a a symbol to indicate the unit used.
 * @param alt Raw altitude/distance (i.e. as taken from baro.BaroAlt in centimeters)
 */
-static void osdFormatAltitudeSymbol(char *buff, int32_t alt)
+static void osdFormatAltitudeSymbol(char *buff, int32_t altInCm)
 {
     switch ((osd_unit_e)osdConfig()->units) {
         case OSD_UNIT_IMPERIAL:
-            if (osdFormatCentiNumber(buff + 1, CENTIMETERS_TO_CENTIFEET(alt), 1000, 0, 2, 3)) {
+            if (osdFormatCentiNumber(buff + 1, CENTIMETERS_TO_CENTIFEET(altInCm), 1000, 0, 2, 3)) {
                 // Scaled to kft
                 buff[0] = SYM_ALT_KFT;
             } else {
@@ -416,7 +416,7 @@ static void osdFormatAltitudeSymbol(char *buff, int32_t alt)
             FALLTHROUGH;
         case OSD_UNIT_METRIC:
             // alt is alredy in cm
-            if (osdFormatCentiNumber(buff+1, alt, 1000, 0, 2, 3)) {
+            if (osdFormatCentiNumber(buff+1, altInCm, 1000, 0, 2, 3)) {
                 // Scaled to km
                 buff[0] = SYM_ALT_KM;
             } else {
@@ -1394,10 +1394,16 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
 			osdMapElementXYInfos[i].eligibleToBeDrawn = osdMapElementXYInfos[i].foundFittingScale;
 			osdMapElementXYInfos[i].poiSymbol = GetMapSymbolForOsdMapElement(&(pOsdMapElements[i]));
 
-            // HACK to test
+            // Relative altitude display
             osdMapElementXYInfos[i].hasAdditionalString = pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT;
             if (osdMapElementXYInfos[i].hasAdditionalString) {
-                strcpy(osdMapElementXYInfos[i].additionalString, "+100m");
+                // Get difference in altitude between other craft and this craft
+                int32_t thisCraftAltitudeInCm = osdGetAltitude();
+                int32_t otherCraftAltitudeInCm = pOsdMapElements[i].altitudeInCentimeters;
+                int32_t altitudeDifferenceInCm = otherCraftAltitudeInCm - thisCraftAltitudeInCm;
+                osdFormatAltitudeSymbol(osdMapElementXYInfos[i].additionalString, altitudeDifferenceInCm);
+
+                //strcpy(osdMapElementXYInfos[i].additionalString, "+100");
             }
 		}
 		// For clarity
@@ -1437,6 +1443,7 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
                     for (int strIndex = 0; strIndex < additionalStringLength; strIndex++) {
                         displayWriteChar(osdDisplayPort, osdMapElementXYInfos[osdMapElementXYIndexToDraw].poiX + strIndex + 1, osdMapElementXYInfos[osdMapElementXYIndexToDraw].poiY, osdMapElementXYInfos[i].additionalString[strIndex]);
                     }
+                    // TODO: User displayWriteWithAttr(osdDisplayPort, elemPosX, elemPosY, buff, elemAttr); instead of above loop. Just ignorant when I wrote it..
                     pOsdMapElements[osdMapElementXYIndexToDraw].additionalStringLength = additionalStringLength;                   
                 }
                 // Update saved location
@@ -1567,6 +1574,8 @@ static void osdDrawMap(uint32_t * pUsedScale,
             // Ground course becomes heading of the map element if this is another craft
 			osdMapElements[osdMapElementCount].absoluteHeadingInCentidegrees = wrap_36000(DECIDEGREES_TO_CENTIDEGREES(otherCraftsToTrack[otherCraftIndex].GroundCourseInDecidegrees)); 		
 			osdMapElements[osdMapElementCount].relativeHeadingInCentidegrees = wrap_36000(osdMapElements[osdMapElementCount].absoluteHeadingInCentidegrees - referenceHeadingInCentidegrees);
+            // Keep track of the altitude for relative altitude display 
+            osdMapElements[osdMapElementCount].altitudeInCentimeters = otherCraftsToTrack[otherCraftIndex].LLH.alt;
 			// Display as stale if needed
 			osdMapElements[osdMapElementCount].displayAsStale = otherCraftsToTrack[otherCraftIndex].IsStale;
             osdMapElementCount++;

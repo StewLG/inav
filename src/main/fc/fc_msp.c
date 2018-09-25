@@ -112,6 +112,9 @@
 #include "hardware_revision.h"
 #endif
 
+// TODO - move the osd.c neighbor functions and make one .h?
+#define METERS_TO_CENTIMETERS(m)                (m * 100)
+
 extern timeDelta_t cycleTime; // FIXME dependency on mw.c
 
 static const char * const flightControllerIdentifier = INAV_IDENTIFIER; // 4 UPPER CASE alpha numeric characters that identify the flight controller.
@@ -2562,8 +2565,12 @@ static mspResult_e mspFcProcessInCommand(uint16_t cmdMSP, sbuf_t *src)
         sbufReadU8Safe(&newCraftPosition.NumSat, src);
         sbufReadU32Safe((uint32_t*)&newCraftPosition.LLH.lat, src);
         sbufReadU32Safe((uint32_t*)&newCraftPosition.LLH.lon, src);
-        // TODO - not expecting to need to cast. Do we need to translate meters (16 bit) to cenimbeters (32 bit, meters * 100)?
-        sbufReadU16Safe((uint16_t*)&newCraftPosition.LLH.alt, src);
+
+		// Altitude transmitted in meters over the wire, convert to centimters for local use
+        uint16_t tempAltitudeInMeters;
+        sbufReadU16Safe(&tempAltitudeInMeters, src);
+        newCraftPosition.LLH.alt = METERS_TO_CENTIMETERS(tempAltitudeInMeters);
+
         sbufReadU16Safe(&newCraftPosition.Speed, src);
         sbufReadU16Safe(&newCraftPosition.GroundCourseInDecidegrees, src);
 

@@ -64,7 +64,7 @@ void updateCraftPosition(otherCraftPosition_t * pUpdatedCraftPosition)
             // Find the oldest (least current) CraftPosition and replace with this one,
             // which is presumed to be newly arrived. This privledges new Crafts over
             // old Crafts, but if we actually have > MAX_OTHER_CRAFTS_TO_TRACK Crafts that are actively in flight,
-            // this could cause aggravating displays as Crafts fought for space in the
+            // this could cause aggravating displays as Crafts fight for space in the
             // array as their competing position messages arrived. Something to think about more.
             otherCraftPosition_t * pOldestCraftPosition = findOldestCraftPosition();
             *pOldestCraftPosition = *pUpdatedCraftPosition;
