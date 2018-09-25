@@ -185,12 +185,12 @@ static int digitCount(int32_t value)
 
 /**
  * Formats a number given in cents, to support non integer values
- * without using floating point math. Value is always right aligned
- * and spaces are inserted before the number to always yield a string
+ * without using floating point math. Value can be right aligned, and if so
+ * spaces are inserted before the number to always yield a string
  * of the same length. If the value doesn't fit into the provided length
- * it will be divided by scale and true will be returned.
+ * it will be divided by scale and true will be returned. 
  */
- static bool osdFormatCentiNumber(char *buff, int32_t centivalue, uint32_t scale, int maxDecimals, int maxScaledDecimals, int length)
+ static bool osdFormatCentiNumberImpl(char *buff, int32_t centivalue, uint32_t scale, int maxDecimals, int maxScaledDecimals, int length, bool rightAlign, bool showPositiveSignCharacter)
  {
     char *ptr = buff;
     char *dec;
@@ -231,7 +231,7 @@ static int digitCount(int32_t value)
     // Done counting. Time to write the characters.
 
     // Write spaces at the start
-    while (remaining > 0) {
+    while (rightAlign && remaining > 0) {
         *ptr = SYM_BLANK;
         ptr++;
         remaining--;
@@ -241,7 +241,12 @@ static int digitCount(int32_t value)
     if (negative) {
         *ptr = '-';
         ptr++;
+    // Write the positive sign if requested and appropriate
+    } else if (showPositiveSignCharacter) {
+        *ptr = '+';
+        ptr++;
     }
+
     // Now write the digits.
     ui2a(integerPart, 10, 0, ptr);
     ptr += digits;
@@ -264,6 +269,18 @@ static int digitCount(int32_t value)
     }
     return scaled;
 }
+
+/**
+ * Formats a number given in cents, to support non integer values
+ * without using floating point math. Value is always right aligned
+ * and spaces are inserted before the number to always yield a string
+ * of the same length. If the value doesn't fit into the provided length
+ * it will be divided by scale and true will be returned.
+ */
+ static bool osdFormatCentiNumber(char *buff, int32_t centivalue, uint32_t scale, int maxDecimals, int maxScaledDecimals, int length)
+ {
+    return osdFormatCentiNumberImpl(buff, centivalue, scale, maxDecimals, maxScaledDecimals, length, true, false);
+ }
 
 /**
  * Converts distance into a string based on the current unit system
@@ -400,11 +417,11 @@ static void osdFormatWindSpeedStr(char *buff, int32_t ws, bool isValid)
 * prefixed by a a symbol to indicate the unit used.
 * @param alt Raw altitude/distance (i.e. as taken from baro.BaroAlt in centimeters)
 */
-static void osdFormatAltitudeSymbol(char *buff, int32_t altInCm)
+static void osdFormatAltitudeSymbol(char *buff, int32_t altInCm, bool rightAlign, bool showPositiveSignCharacter)
 {
     switch ((osd_unit_e)osdConfig()->units) {
         case OSD_UNIT_IMPERIAL:
-            if (osdFormatCentiNumber(buff + 1, CENTIMETERS_TO_CENTIFEET(altInCm), 1000, 0, 2, 3)) {
+            if (osdFormatCentiNumberImpl(buff + 1, CENTIMETERS_TO_CENTIFEET(altInCm), 1000, 0, 2, 3, rightAlign, showPositiveSignCharacter)) {
                 // Scaled to kft
                 buff[0] = SYM_ALT_KFT;
             } else {
@@ -416,7 +433,7 @@ static void osdFormatAltitudeSymbol(char *buff, int32_t altInCm)
             FALLTHROUGH;
         case OSD_UNIT_METRIC:
             // alt is alredy in cm
-            if (osdFormatCentiNumber(buff+1, altInCm, 1000, 0, 2, 3)) {
+            if (osdFormatCentiNumberImpl(buff+1, altInCm, 1000, 0, 2, 3, rightAlign, showPositiveSignCharacter)) {
                 // Scaled to km
                 buff[0] = SYM_ALT_KM;
             } else {
@@ -1400,9 +1417,7 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
                 int32_t thisCraftAltitudeInCm = osdGetAltitude();
                 int32_t otherCraftAltitudeInCm = pOsdMapElements[i].altitudeInCentimeters;
                 int32_t altitudeDifferenceInCm = otherCraftAltitudeInCm - thisCraftAltitudeInCm;
-                // TODO: Make alternate version of this w/o the string gap. Use common impls?
-                osdMapElementXYInfos[i].additionalString[0] = altitudeDifferenceInCm > 0 ? '+' : '-';
-                osdFormatAltitudeSymbol(&(osdMapElementXYInfos[i].additionalString[1]), altitudeDifferenceInCm);
+                osdFormatAltitudeSymbol(&(osdMapElementXYInfos[i].additionalString[0]), altitudeDifferenceInCm, false, true);
             }
 		}
 		// For clarity
@@ -2214,7 +2229,7 @@ static bool osdDrawSingleElement(uint8_t item)
     case OSD_ALTITUDE:
         {
             int32_t alt = osdGetAltitude();
-            osdFormatAltitudeSymbol(buff, alt);
+            osdFormatAltitudeSymbol(buff, alt, true, false);
             uint16_t alt_alarm = osdConfig()->alt_alarm;
             uint16_t neg_alt_alarm = osdConfig()->neg_alt_alarm;
             if ((alt_alarm > 0 && CENTIMETERS_TO_METERS(alt) > alt_alarm) ||
