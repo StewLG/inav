@@ -1393,17 +1393,16 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
 			// Automatically not eligible to be drawn if it doesn't fit on screen
 			osdMapElementXYInfos[i].eligibleToBeDrawn = osdMapElementXYInfos[i].foundFittingScale;
 			osdMapElementXYInfos[i].poiSymbol = GetMapSymbolForOsdMapElement(&(pOsdMapElements[i]));
-
-            // Relative altitude display
+            // Compose Relative altitude display string
             osdMapElementXYInfos[i].hasAdditionalString = pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT;
             if (osdMapElementXYInfos[i].hasAdditionalString) {
                 // Get difference in altitude between other craft and this craft
                 int32_t thisCraftAltitudeInCm = osdGetAltitude();
                 int32_t otherCraftAltitudeInCm = pOsdMapElements[i].altitudeInCentimeters;
                 int32_t altitudeDifferenceInCm = otherCraftAltitudeInCm - thisCraftAltitudeInCm;
-                osdFormatAltitudeSymbol(osdMapElementXYInfos[i].additionalString, altitudeDifferenceInCm);
-
-                //strcpy(osdMapElementXYInfos[i].additionalString, "+100");
+                // TODO: Make alternate version of this w/o the string gap. Use common impls?
+                osdMapElementXYInfos[i].additionalString[0] = altitudeDifferenceInCm > 0 ? '+' : '-';
+                osdFormatAltitudeSymbol(&(osdMapElementXYInfos[i].additionalString[1]), altitudeDifferenceInCm);
             }
 		}
 		// For clarity
