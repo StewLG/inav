@@ -237,8 +237,6 @@ typedef struct osdMapElementXYInfo {
     // Additional characters to be drawn to right of 
     // poiSymbol (e.g. relative altitude for other craft)
     char additionalString[MAX_ADDITIONAL_POI_TEXT_LENGTH];
-
-
 } osdMapElementXYInfo_t;
 
 typedef struct osdMapElement_s {
@@ -263,7 +261,6 @@ typedef struct osdMapElement_s {
     uint8_t additionalStringLength;
 	// Set to true when this OSD element is "stale", and should be shown to be a uncertain position in the display.
 	bool displayAsStale;
-
 } osdMapElement_t;
 
 typedef struct osdScreenSetup_s {
@@ -285,11 +282,6 @@ void osdStartFullRedraw(void);
 // to -1 to disable the override.
 void osdOverrideLayout(int layout);
 bool osdItemIsFixed(osd_items_e item);
-//void eraseSingleMapElementFromDisplay(osdMapElement_t * pOsdMapElements, osdMapElementXYInfo_t * pOsdMapElementXYInfo, int mapElementIndex);
-//void eraseSingleMapElementFromDisplay(osdMapElement_t * pOsdMapElement, osdMapElementXYInfo_t * pOsdMapElementXYInfo);
-//void eraseAllMapElementsFromDisplay(osdMapElement_t * pOsdMapElements, osdMapElementXYInfo_t * pOsdMapElementXYInfos, int osdMapElementCount);
-//void eraseAllMapElementsFromDisplay(osdMapElement_t * pOsdMapElements, osdMapElementXYInfo_t * pOsdMapElementXYInfos, int osdMapElementCount);
-
 void eraseSingleMapElementFromDisplay(osdMapElement_t * pOsdMapElement);
 void eraseAllMapElementsFromDisplay(osdMapElement_t * pOsdMapElements, int osdMapElementCount);
 

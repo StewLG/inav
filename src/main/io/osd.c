@@ -1007,50 +1007,6 @@ static uint32_t CalculateFittingScaleForMap(osdScreenSetup_t * pOsdScreenSetup,
     return clipScaleToMinMax(maxScale);
 }
 
-/*
-// This does not delete the map element, merely clears it from
-// the display (if it is visible)
-void eraseSingleMapElementFromDisplay(osdMapElement_t * pOsdMapElements, osdMapElementXYInfo_t * pOsdMapElementXYInfo, int mapElementIndex)
-{
-    if (OSD_VISIBLE(pOsdMapElements[mapElementIndex].drawn)) {
-        uint8_t osdX = OSD_X(pOsdMapElements[mapElementIndex].drawn);
-        uint8_t osdY = OSD_Y(pOsdMapElements[mapElementIndex].drawn);
-        // Erase mail poiSymbol
-        displayWriteChar(osdDisplayPort, osdX, osdY, SYM_BLANK);
-        // Erase any additional string being shown (relative altitude display for now)
-        if (pOsdMapElementXYInfo[mapElementIndex].hasAdditionalString) {
-            osdX += 1;
-            int additionalStrLen = strlen(pOsdMapElementXYInfo[mapElementIndex].additionalString);
-            for (int i = 0; i < additionalStrLen; i++) {
-                displayWriteChar(osdDisplayPort, osdX + i, osdY, SYM_BLANK);
-            }
-        }
-        pOsdMapElements[mapElementIndex].drawn = 0;
-    }
-}
-*/
-
-/*
-void eraseSingleMapElementFromDisplay(osdMapElement_t * pOsdMapElement, osdMapElementXYInfo_t * pOsdMapElementXYInfo)
-{
-    if (OSD_VISIBLE(pOsdMapElement->drawn)) {
-        uint8_t osdX = OSD_X(pOsdMapElement->drawn);
-        uint8_t osdY = OSD_Y(pOsdMapElement->drawn);
-        // Erase mail poiSymbol
-        displayWriteChar(osdDisplayPort, osdX, osdY, SYM_BLANK);
-        // Erase any additional string being shown (relative altitude display for now)
-        if (pOsdMapElementXYInfo->hasAdditionalString) {
-            osdX += 1;
-            int additionalStrLen = strlen(pOsdMapElementXYInfo->additionalString);
-            for (int i = 0; i < additionalStrLen; i++) {
-                displayWriteChar(osdDisplayPort, osdX + i, osdY, SYM_BLANK);
-            }
-        }
-        pOsdMapElement->drawn = 0;
-    }
-}
-*/
-
 void eraseSingleMapElementFromDisplay(osdMapElement_t * pOsdMapElement)
 {
     if (OSD_VISIBLE(pOsdMapElement->drawn)) {
@@ -1068,28 +1024,6 @@ void eraseSingleMapElementFromDisplay(osdMapElement_t * pOsdMapElement)
         pOsdMapElement->drawn = 0;
     }
 }
-
-
-
-/*
-void eraseAllMapElementsFromDisplay(osdMapElement_t * pOsdMapElements, osdMapElementXYInfo_t * pOsdMapElementXYInfos, int osdMapElementCount)
-{
-	// Erase all the extant drawings on the map of OSDMapElements
-    for (int i = 0; i < osdMapElementCount; i++) {
-		eraseSingleMapElementFromDisplay(pOsdMapElements, pOsdMapElementXYInfo, i);
-	}
-}
-*/
-
-/*
-void eraseAllMapElementsFromDisplay(osdMapElement_t * pOsdMapElements, osdMapElementXYInfo_t * pOsdMapElementXYInfos, int osdMapElementCount)
-{
-    // Erase all the extant drawings on the map of OSDMapElements
-    for (int i = 0; i < osdMapElementCount; i++) {
-        eraseSingleMapElementFromDisplay(&(pOsdMapElements[i]), &(pOsdMapElementXYInfos[i]));
-    }
-}
-*/
 
 void eraseAllMapElementsFromDisplay(osdMapElement_t * pOsdMapElements, int osdMapElementCount)
 {
@@ -1420,6 +1354,11 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
                 int32_t altitudeDifferenceInCm = otherCraftAltitudeInCm - thisCraftAltitudeInCm;
                 osdFormatAltitudeSymbol(&(osdMapElementXYInfos[i].additionalString[0]), altitudeDifferenceInCm, false, true);
             }
+            else
+            {
+                // Clear the string
+                osdMapElementXYInfos[i].additionalString[0] = '\0';
+            }
 		}
 		// For clarity
 		int osdMapElementXYCount = osdMapElementCount;
@@ -1432,7 +1371,9 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
         osdMapElementXYInfos[osdMapElementXYCount].foundFittingScale = true;
 		osdMapElementXYInfos[osdMapElementXYCount].eligibleToBeDrawn = true;
 		osdMapElementXYInfos[osdMapElementXYCount].poiSymbol = GetMapSymbolForOsdDisplayType(centerSymbolDisplayType, 0, false);
-		osdMapElementXYCount++;			
+        osdMapElementXYInfos[osdMapElementXYCount].hasAdditionalString = false;
+        osdMapElementXYInfos[osdMapElementXYCount].additionalString[0] = '\0';
+		osdMapElementXYCount++;	
 
         // Go through all the OSD Map Element XYs,  
 		// this time actually drawing symbols on screen. 
@@ -1468,7 +1409,12 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
                 pOsdMapElements[osdMapElementXYIndexToDraw].drawn = OSD_POS(osdMapElementXYInfos[osdMapElementXYIndexToDraw].poiX, osdMapElementXYInfos[osdMapElementXYIndexToDraw].poiY) | OSD_VISIBLE_FLAG;
 				// Mark all map elements that share this X,Y as no longer eligible to draw
 				markXYElementsAsNoLongerEligibleToDraw(osdMapElementXYInfos, osdMapElementXYCount, osdMapElementXYInfos[osdMapElementXYIndexToDraw].poiX, osdMapElementXYInfos[osdMapElementXYIndexToDraw].poiY);
-			}			
+			}
+            else
+            {
+                // Not eligible to be drawn
+                pOsdMapElements[i].drawn = 0;
+            }
 		}
     }
 
