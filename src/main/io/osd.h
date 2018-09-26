@@ -223,6 +223,10 @@ typedef enum {
 #define MAX_ADDITIONAL_POI_TEXT_LENGTH 8
 
 typedef struct osdMapElementXYInfo {
+    // Does this X,Y position fit on the actual screen?
+    bool foundFittingScale;    
+    // Is this Map Element eligible to be drawn?
+    bool eligibleToBeDrawn;        
     // X,Y position of MapElement
     int poiX;
     int poiY;
@@ -233,10 +237,8 @@ typedef struct osdMapElementXYInfo {
     // Additional characters to be drawn to right of 
     // poiSymbol (e.g. relative altitude for other craft)
     char additionalString[MAX_ADDITIONAL_POI_TEXT_LENGTH];
-    // Does this X,Y position fit on the actual screen?
-    bool foundFittingScale;
-    // Is this Map Element eligible to be drawn?
-    bool eligibleToBeDrawn;
+
+
 } osdMapElementXYInfo_t;
 
 typedef struct osdMapElement_s {

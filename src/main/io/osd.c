@@ -1411,7 +1411,8 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
 			osdMapElementXYInfos[i].eligibleToBeDrawn = osdMapElementXYInfos[i].foundFittingScale;
 			osdMapElementXYInfos[i].poiSymbol = GetMapSymbolForOsdMapElement(&(pOsdMapElements[i]));
             // Compose Relative altitude display string
-            osdMapElementXYInfos[i].hasAdditionalString = pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT;
+            osdMapElementXYInfos[i].hasAdditionalString = pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT &&
+                                                          osdMapElementXYInfos[i].eligibleToBeDrawn;
             if (osdMapElementXYInfos[i].hasAdditionalString) {
                 // Get difference in altitude between other craft and this craft
                 int32_t thisCraftAltitudeInCm = osdGetAltitude();
@@ -1450,6 +1451,9 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
 				}
                 // Write character to screen
                 displayWriteChar(osdDisplayPort, osdMapElementXYInfos[osdMapElementXYIndexToDraw].poiX, osdMapElementXYInfos[osdMapElementXYIndexToDraw].poiY, osdMapElementXYInfos[osdMapElementXYIndexToDraw].poiSymbol);
+
+                // Assume 0 length until actually set
+                pOsdMapElements[osdMapElementXYIndexToDraw].additionalStringLength = 0;
 
                 // Display additional string (if applicable)
                 if (osdMapElementXYInfos[i].hasAdditionalString) {
