@@ -1399,10 +1399,7 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
                 // Display additional string (if applicable)
                 if (osdMapElementXYInfos[i].hasAdditionalString) {
                     int additionalStringLength = (int)strlen(osdMapElementXYInfos[i].additionalString);
-                    for (int strIndex = 0; strIndex < additionalStringLength; strIndex++) {
-                        displayWriteChar(osdDisplayPort, osdMapElementXYInfos[osdMapElementXYIndexToDraw].poiX + strIndex + 1, osdMapElementXYInfos[osdMapElementXYIndexToDraw].poiY, osdMapElementXYInfos[i].additionalString[strIndex]);
-                    }
-                    // TODO: User displayWriteWithAttr(osdDisplayPort, elemPosX, elemPosY, buff, elemAttr); instead of above loop. Just ignorant when I wrote it..
+                    displayWriteWithAttr(osdDisplayPort, osdMapElementXYInfos[osdMapElementXYIndexToDraw].poiX + 1, osdMapElementXYInfos[osdMapElementXYIndexToDraw].poiY, osdMapElementXYInfos[i].additionalString, TEXT_ATTRIBUTES_NONE);
                     pOsdMapElements[osdMapElementXYIndexToDraw].additionalStringLength = additionalStringLength;                   
                 }
                 // Update saved location
