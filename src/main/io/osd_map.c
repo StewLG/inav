@@ -358,11 +358,11 @@ int getCountOfXYNeighbors(osdMapElementXYInfo_t * pOsdMapElementXYInfos, uint16_
     return neighborCount;
 }
 
-void markXYElementsAsNoLongerEligibleToDraw(osdMapElementXYInfo_t * pOsdMapElementXYInfos, uint16_t osdMapElementXYCount, osdMapElementXYInfo_t * pOsdMapElementToCheckForNeighborsOf)
+void markXYElementsAsNoLongerEligibleToDrawExceptOne(osdMapElementXYInfo_t * pOsdMapElementXYInfos, uint16_t osdMapElementXYCount, uint16_t indexToExempt)
 {
     // Go through all the OSD Map Elements looking for given X,Y
     for (int i = 0; i < osdMapElementXYCount; i++) {
-        if (doOsdMapElementsOverlap(pOsdMapElementToCheckForNeighborsOf, &(pOsdMapElementXYInfos[i]) )) {
+        if (i != indexToExempt && doOsdMapElementsOverlap(&(pOsdMapElementXYInfos[indexToExempt]), &(pOsdMapElementXYInfos[i]))) {
 			pOsdMapElementXYInfos[i].eligibleToBeDrawn = false;
         }
 	}
@@ -543,52 +543,68 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
         osdMapElementXYInfos[osdMapElementXYCount].additionalString[0] = '\0';
 		osdMapElementXYCount++;	
 
+        // TODO - Make routine?
+
+        // Go through all the OsdMapElementXYInfos, and if elements are overlapping, we pick which of the overlapping elements
+        // to show for each overlap site.
+        for (int i = 0; i < osdMapElementXYCount; i++) {
+            // Is this element able to be drawn, potentially?
+            if (osdMapElementXYInfos[i].eligibleToBeDrawn) {
+                // At first, assume we'll draw this map element
+                int osdMapElementXYIndexToDraw = i;
+                // Do any other map elements share overlapping positions on the map?                
+                int neighborCount = getCountOfXYNeighbors(osdMapElementXYInfos, osdMapElementXYCount, &(osdMapElementXYInfos[i]));
+                // If there is more than one symbol at a given X,Y location, we display each possible symbol alternately, with a delay,
+                // so that all available symbols can be seen in turn, in a brief interval.
+                if (neighborCount > 1) {
+                    // Here we choose which of the overlapping map elements at a single position should actually be drawn
+                    osdMapElementXYIndexToDraw = getNeighborIndexForMultipleXYInSameLocation(osdMapElementXYInfos, osdMapElementXYCount, &(osdMapElementXYInfos[i]), neighborCount);
+                    // Mark all other map elements that share this position as no longer eligible to draw
+                    markXYElementsAsNoLongerEligibleToDrawExceptOne(osdMapElementXYInfos, osdMapElementXYCount, osdMapElementXYIndexToDraw);
+                }
+            }
+        }
+
+
+        //  DO WE HAVE INDEX SLIPPAGE DOWN HERE????
+
         // Go through all the OSD Map Element XYs,  
 		// this time actually drawing symbols on screen. 
         for (int i = 0; i < osdMapElementXYCount; i++) {
 			// Is this element able to be drawn, potentially?
 			if (osdMapElementXYInfos[i].eligibleToBeDrawn) {
-				// At first, assume we'll draw this map element
-				int osdMapElementXYIndexToDraw = i;
-				// Do any other map elements share overlapping positions on the map?				
-				int neighborCount = getCountOfXYNeighbors(osdMapElementXYInfos, osdMapElementXYCount, &(osdMapElementXYInfos[i]));
-				// If there is more than one symbol at a given X,Y location, we display each possible symbol alternately, with a delay,
-				// so that all available symbols can be seen in turn, in a brief interval.
-				if (neighborCount > 1) {
-					// Here we choose which of the overlapping symbols at a single X,Y location should actually be drawn
-                    // HACK - Confirm that overlap is really really the issue????
-					//osdMapElementXYIndexToDraw = getNeighborIndexForMultipleXYInSameLocation(osdMapElementXYInfos, osdMapElementXYCount, &(osdMapElementXYInfos[i]), neighborCount);
-                    
-                    // Wait, this CRASHES ultimately??? Well, ok, I'm just pulling some random index, might be offscreen...
-                    //osdMapElementXYIndexToDraw = 1;
-				}
-                int poiX = osdMapElementXYInfos[osdMapElementXYIndexToDraw].poiX;
-                int poiY = osdMapElementXYInfos[osdMapElementXYIndexToDraw].poiY;
-                uint8_t poiSymbol = osdMapElementXYInfos[osdMapElementXYIndexToDraw].poiSymbol;
+				// We'll draw this map element				                
+                int poiX = osdMapElementXYInfos[i].poiX;
+                int poiY = osdMapElementXYInfos[i].poiY;
+                uint8_t poiSymbol = osdMapElementXYInfos[i].poiSymbol;
 
                 // Write character to screen
                 displayWriteChar(osdDisplayPort, poiX, poiY, poiSymbol);
 
                 // Assume 0 length until actually set
-                pOsdMapElements[osdMapElementXYIndexToDraw].additionalStringLength = 0;
+                pOsdMapElements[i].additionalStringLength = 0;
 
                 // Display additional string (if applicable)
-                if (osdMapElementXYInfos[osdMapElementXYIndexToDraw].hasAdditionalString) {
-                    int additionalStringLength = (int)strlen(osdMapElementXYInfos[osdMapElementXYIndexToDraw].additionalString);
-                    displayWriteWithAttr(osdDisplayPort, poiX + 1, poiY, osdMapElementXYInfos[osdMapElementXYIndexToDraw].additionalString, TEXT_ATTRIBUTES_NONE);
-                    pOsdMapElements[osdMapElementXYIndexToDraw].additionalStringLength = additionalStringLength;                   
+                if (osdMapElementXYInfos[i].hasAdditionalString) {
+                    int additionalStringLength = (int)strlen(osdMapElementXYInfos[i].additionalString);
+                    displayWriteWithAttr(osdDisplayPort, poiX + 1, poiY, osdMapElementXYInfos[i].additionalString, TEXT_ATTRIBUTES_NONE);
+                    pOsdMapElements[i].additionalStringLength = additionalStringLength;                   
                 }
                 // Update saved location
-                pOsdMapElements[osdMapElementXYIndexToDraw].drawn = OSD_POS(poiX, poiY) | OSD_VISIBLE_FLAG;
-				// Mark all map elements that share this X,Y as no longer eligible to draw
-				markXYElementsAsNoLongerEligibleToDraw(osdMapElementXYInfos, osdMapElementXYCount, &(osdMapElementXYInfos[osdMapElementXYIndexToDraw]) );
+                pOsdMapElements[i].drawn = OSD_POS(poiX, poiY) | OSD_VISIBLE_FLAG;
 			}
             else
             {
+                // This may not be right... remove???
+
                 // Not eligible to be drawn
                 pOsdMapElements[i].drawn = 0;
             }
 		}
+
+
+
+
     }
 
     // Draw the used scale
