@@ -15,4 +15,5 @@ TARGET_SRC = \
             drivers/flash_m25p16.c \
             drivers/max7456.c \
             drivers/serial_softserial.c \
-            io/osd.c
+            io/osd.c \
+            io/osd_map.c

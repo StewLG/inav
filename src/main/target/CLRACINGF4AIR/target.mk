@@ -3,6 +3,7 @@ FEATURES       = VCP
 
 TARGET_SRC = \
             io/osd.c \
+            io/osd_map.c \
             drivers/accgyro/accgyro_mpu.c \
             drivers/accgyro/accgyro_fake.c \
             drivers/accgyro/accgyro_mpu6500.c \

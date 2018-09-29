@@ -22,6 +22,7 @@
 
 #include "config/parameter_group.h"
 
+#include "drivers/display.h"
 #include "drivers/vcd.h"
 
 #include "io/other_craft.h"
@@ -40,6 +41,8 @@
 #define OSD_Y(x)            (((x) >> 5) & 0x001F)
 #define OSD_POS_MAX         0x3FF
 #define OSD_POS_MAX_CLI     (OSD_POS_MAX | OSD_VISIBLE_FLAG)
+
+#define OSD_ALTERNATING_CHOICES(ms, num_choices) ((millis() / ms) % num_choices)
 
 typedef enum {
     OSD_RSSI_VALUE,
@@ -201,68 +204,6 @@ typedef struct osdConfig_s {
     uint8_t map_v_margin;
 } osdConfig_t;
 
-extern uint8_t otherCraftCount;
-extern otherCraftPosition_t otherCraftsToTrack[MAX_OTHER_CRAFTS_TO_TRACK];
-
- extern navigationPosEstimator_t posEstimator;
-
-// The maximum number of OSD elements we can display at one time.
-// (Maximum nubmer of crafts + 1 for special symbol [home/other craft])
-#define MAX_OSD_ELEMENTS (MAX_OTHER_CRAFTS_TO_TRACK + 1)
-
-typedef enum {
-    // Draws a home icon
-    OSD_MAP_ELEMENT_DISPLAY_TYPE_HOME_ICON,
-	// Draws symbol representing self-craft.
-	OSD_MAP_ELEMENT_DISPLAY_TYPE_SELF_CRAFT,
-    // Draws a rotated arrow corresponding to Craft heading.
-    OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT
-    // Other types are conceivable - numbered waypoints, for example?
-} osd_map_element_display_type_e;
-
-#define MAX_ADDITIONAL_POI_TEXT_LENGTH 8
-
-typedef struct osdMapElementXYInfo {
-    // Does this X,Y position fit on the actual screen?
-    bool foundFittingScale;    
-    // Is this Map Element eligible to be drawn?
-    bool eligibleToBeDrawn;        
-    // X,Y position of MapElement
-    int poiX;
-    int poiY;
-    // Symbol character to be drawn there
-    uint8_t poiSymbol;    
-    // Do we have an additional string to draw?
-    bool hasAdditionalString;
-    // Additional characters to be drawn to right of 
-    // poiSymbol (e.g. relative altitude for other craft)
-    char additionalString[MAX_ADDITIONAL_POI_TEXT_LENGTH];
-} osdMapElementXYInfo_t;
-
-typedef struct osdMapElement_s {
-    osd_map_element_display_type_e osdMapElementDisplayType;
-    uint32_t poiDistanceInCentimeters;
-    // Absolute direction to the map element; 0 = north
-    int32_t poiDirectionInCentidegrees;    
-    // relative direction to the map element, from the center of the map's perspective      
-    int32_t relativePoiDirectionInCentidegrees; 
-    // Absolute heading of the map element; 0 = north. This is the direction the craft is facing, if relevant, otherwise 0. 
-	// TODO - Remove? Not actually needed? Here in the short term for debugging at least.
-    int32_t absoluteHeadingInCentidegrees;      
-    // Relative heading of the map element, from the center of the map's perspective. If not relevant to the map element this is 0.
-    int32_t relativeHeadingInCentidegrees;
-    // Altitude in centimeters (meters * 100)
-    int32_t altitudeInCentimeters; 
-    float poiSin;
-    float poiCos;
-    // The value of the symbol/character for the on-screen OSD byte
-    uint16_t drawn;
-    // Length of additional string (0 if no additional string)
-    uint8_t additionalStringLength;
-	// Set to true when this OSD element is "stale", and should be shown to be a uncertain position in the display.
-	bool displayAsStale;
-} osdMapElement_t;
-
 typedef struct osdScreenSetup_s {
     uint8_t minX;
     uint8_t maxX;
@@ -272,17 +213,22 @@ typedef struct osdScreenSetup_s {
     uint8_t midY;
 } osdScreenSetup_t;
 
+extern displayPort_t *osdDisplayPort;
+
 PG_DECLARE(osdConfig_t, osdConfig);
 
 struct displayPort_s;
+
+bool osdIsHeadingValid(void);
+int16_t osdGetHeading(void);
 void osdInit(struct displayPort_s *osdDisplayPort);
 void osdUpdate(timeUs_t currentTimeUs);
 void osdStartFullRedraw(void);
-// Sets a fixed OSD layout ignoring the RC input. Set it
-// to -1 to disable the override.
 void osdOverrideLayout(int layout);
 bool osdItemIsFixed(osd_items_e item);
-void eraseSingleMapElementFromDisplay(osdMapElement_t * pOsdMapElement);
-void eraseAllMapElementsFromDisplay(osdMapElement_t * pOsdMapElements, int osdMapElementCount);
+int osdNormalizeAngle(int angle);
+void osdFormatAltitudeSymbol(char *buff, int32_t altInCm, bool rightAlign, bool showPositiveSignCharacter);
+bool osdFormatCentiNumberImpl(char *buff, int32_t centivalue, uint32_t scale, int maxDecimals, int maxScaledDecimals, int length, bool rightAlign, bool showPositiveSignCharacter);
+bool osdFormatCentiNumber(char *buff, int32_t centivalue, uint32_t scale, int maxDecimals, int maxScaledDecimals, int length);
 
 uint8_t osdGetRotatedArrowCharacter(int rotationInDegrees);
