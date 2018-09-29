@@ -56,6 +56,11 @@ typedef struct osdMapElementXYInfo {
     // Additional characters to be drawn to right of 
     // poiSymbol (e.g. relative altitude for other craft)
     char additionalString[MAX_ADDITIONAL_POI_TEXT_LENGTH];
+    // Is this element overlapping one or more elements?
+    bool inOverlapSet;
+    // If inOverlapSet is true, this is the index of the leftmost
+    // elment in the set, which becomes the identifier for the overlap set.
+    int overlapSetIndex;
 } osdMapElementXYInfo_t;
 
 typedef struct osdMapElement_s {

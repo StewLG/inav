@@ -332,9 +332,16 @@ int getOsdMapElementMaxPosX(osdMapElementXYInfo_t * pOsdMapElement)
     return maxPosX;
 }
 
-// TODO: While these overlap checks handle simple overlap pretty well, they don't yet handle complex overlap.
-// For example, 1 overlaps 2, 2 overlaps 3. This is really one set of overlapping elements where 1,2 and 3 should
-// blink in the same set. Right now these are considered two sets, and the results definitely aren't perfect.
+// Overlap is a bit more complicated than it first might appear. If two elements overlap, the simple check in
+// doOsdMapElementsOverlap is enough. It's more complicated overlaps that are the problem.
+// 
+// For example, say 1 overlaps 2, 2 overlaps 3, and 3 overlaps 4. 5 overlaps 6. Finally, 7 overlaps 8 and 8 overlaps 9.
+// 
+// In this case, there are three sets of overlapping elements:
+//      1,2,3,4
+//      5,6
+//      7,8,9
+// Each set should have its members blink in turn.
 
 bool doOsdMapElementsOverlap(osdMapElementXYInfo_t * pOsdMapElementOne, osdMapElementXYInfo_t * pOsdMapElementTwo)
 {
@@ -349,13 +356,51 @@ bool doOsdMapElementsOverlap(osdMapElementXYInfo_t * pOsdMapElementOne, osdMapEl
     return xRangesOverlap && yOverlaps;
 }
 
+void markOsdMapElementsForOverlap(osdMapElementXYInfo_t * pOsdMapElementXYInfos, uint16_t osdMapElementXYCount)
+{
+    // Just to be sure, clear the existing set information
+    for (int i = 0; i < osdMapElementXYCount; i++) {
+        pOsdMapElementXYInfos[i].inOverlapSet = false;
+        pOsdMapElementXYInfos[i].overlapSetIndex = -1;
+    }
+
+    // Go through all the OSD Map Elements looking for overlap of coordinates. We move left to right,
+    // marking contiguous sets of overlap.
+    for (int i = 0; i < osdMapElementXYCount - 1; i++) {
+        osdMapElementXYInfo_t * pElementLeft = &(pOsdMapElementXYInfos[i]);
+        osdMapElementXYInfo_t * pElementRight = &(pOsdMapElementXYInfos[i+1]);
+        // If Elements overlap...
+        if (doOsdMapElementsOverlap(pElementLeft, pElementRight)) {
+            // If left is in a set already, right joins that set
+            if (pElementLeft->inOverlapSet) {
+                pElementRight->inOverlapSet = true;
+                pElementRight->overlapSetIndex = pElementLeft->overlapSetIndex;
+            }
+            // If left is not in a set, we start a new set using the left's index
+            // and mark both as belonging to it.
+            else {
+                pElementLeft->inOverlapSet = true;
+                pElementLeft->overlapSetIndex = i;
+                pElementRight->inOverlapSet = true;
+                pElementRight->overlapSetIndex = i;
+            }
+        }
+    }
+}
+
+bool doOsdMapElementsBelongToTheSameOverlapSet(osdMapElementXYInfo_t * pOsdMapElementOne, osdMapElementXYInfo_t * pOsdMapElementTwo)
+{
+    return pOsdMapElementOne->inOverlapSet && pOsdMapElementTwo->inOverlapSet &&
+           pOsdMapElementOne->overlapSetIndex == pOsdMapElementTwo->overlapSetIndex;
+}
+
 int getCountOfXYNeighbors(osdMapElementXYInfo_t * pOsdMapElementXYInfos, uint16_t osdMapElementXYCount, osdMapElementXYInfo_t * pOsdMapElementToCheckForNeighborsOf)
 {
     int neighborCount = 0;
 
-    // Go through all the OSD Map Elements looking for overlap of coordinates
-    for (int i = 0; i < osdMapElementXYCount; i++) {        
-        if (doOsdMapElementsOverlap(pOsdMapElementToCheckForNeighborsOf, &(pOsdMapElementXYInfos[i]) )) {
+    // Go through all the OSD Map Elements looking for common membership in an overlap set
+    for (int i = 0; i < osdMapElementXYCount; i++) {
+        if (doOsdMapElementsBelongToTheSameOverlapSet(pOsdMapElementToCheckForNeighborsOf, &(pOsdMapElementXYInfos[i]) )) {
             neighborCount++;
         }
     }
@@ -364,9 +409,10 @@ int getCountOfXYNeighbors(osdMapElementXYInfo_t * pOsdMapElementXYInfos, uint16_
 
 void markXYElementsAsNoLongerEligibleToDrawExceptOne(osdMapElementXYInfo_t * pOsdMapElementXYInfos, uint16_t osdMapElementXYCount, uint16_t indexToExempt)
 {
-    // Go through all the OSD Map Elements looking for elements the overlap the map element at the index to exempt
+    // Go through all the OSD Map Elements looking for elements in the same overlap set as the map element at the index to exempt
     for (int i = 0; i < osdMapElementXYCount; i++) {
-        if (i != indexToExempt && doOsdMapElementsOverlap(&(pOsdMapElementXYInfos[indexToExempt]), &(pOsdMapElementXYInfos[i]))) {
+        // If they are in the same set, we mark these so they won't be drawn
+        if (i != indexToExempt && doOsdMapElementsBelongToTheSameOverlapSet(&(pOsdMapElementXYInfos[indexToExempt]), &(pOsdMapElementXYInfos[i]))) {
 			pOsdMapElementXYInfos[i].eligibleToBeDrawn = false;
         }
 	}
@@ -397,7 +443,7 @@ int getNeighborIndexForMultipleXYInSameLocation(osdMapElementXYInfo_t * pOsdMapE
 	int neighborXYInfoIndexToDraw = 0;
 	int currentNeighborIndex = 0;
     for (int i = 0; i < osdMapElementXYCount; i++) {
-        if (doOsdMapElementsOverlap(pOsdMapElementToCheckForNeighborsOf, &(pOsdMapElementXYInfos[i]) )) {
+        if (doOsdMapElementsBelongToTheSameOverlapSet(pOsdMapElementToCheckForNeighborsOf, &(pOsdMapElementXYInfos[i]) )) {
 			if (currentNeighborIndex == relativeNeighborIndex) {
 				// This is the neighborindex to draw
 				neighborXYInfoIndexToDraw = i;				
@@ -524,13 +570,16 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
                 int32_t thisCraftAltitudeInCm = osdGetAltitude();
                 int32_t otherCraftAltitudeInCm = pOsdMapElements[i].altitudeInCentimeters;
                 int32_t altitudeDifferenceInCm = otherCraftAltitudeInCm - thisCraftAltitudeInCm;
-                osdFormatAltitudeSymbol(&(osdMapElementXYInfos[i].additionalString[0]), altitudeDifferenceInCm, false, true);
+                osdFormatAltitudeSymbol(&(osdMapElementXYInfos[i].additionalString[0]), altitudeDifferenceInCm, false, true);                
             }
             else
             {
                 // Clear the string
                 osdMapElementXYInfos[i].additionalString[0] = '\0';
             }
+            // Clear set membership to start; we'll make a separate pass on this in a moment
+            osdMapElementXYInfos[i].inOverlapSet = false;
+            osdMapElementXYInfos[i].overlapSetIndex = -1;
 		}
 		// For clarity
 		int osdMapElementXYCount = osdMapElementCount;
@@ -547,6 +596,8 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
         osdMapElementXYInfos[osdMapElementXYCount].additionalString[0] = '\0';
 		osdMapElementXYCount++;	
 
+        markOsdMapElementsForOverlap(osdMapElementXYInfos, osdMapElementXYCount);
+
         // TODO - Make routine?
 
         // Go through all the OsdMapElementXYInfos, and if elements are overlapping, we pick which of the overlapping elements
@@ -558,7 +609,7 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
                 int osdMapElementXYIndexToDraw = i;
                 // Do any other map elements share overlapping positions on the map?                
                 int neighborCount = getCountOfXYNeighbors(osdMapElementXYInfos, osdMapElementXYCount, &(osdMapElementXYInfos[i]));
-                // If there is more than one symbol at a given X,Y location, we display each possible symbol alternately, with a delay,
+                // If there is more than one map element in the set, we display each possible element alternately, with a delay,
                 // so that all available symbols can be seen in turn, in a brief interval.
                 if (neighborCount > 1) {
                     // Here we choose which of the overlapping map elements at a single position should actually be drawn
