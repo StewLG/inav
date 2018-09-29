@@ -332,17 +332,6 @@ int getOsdMapElementMaxPosX(osdMapElementXYInfo_t * pOsdMapElement)
     return maxPosX;
 }
 
-// Overlap is a bit more complicated than it first might appear. If two elements overlap, the simple check in
-// doOsdMapElementsOverlap is enough. It's more complicated overlaps that are the problem.
-// 
-// For example, say 1 overlaps 2, 2 overlaps 3, and 3 overlaps 4. 5 overlaps 6. Finally, 7 overlaps 8 and 8 overlaps 9.
-// 
-// In this case, there are three sets of overlapping elements:
-//      1,2,3,4
-//      5,6
-//      7,8,9
-// Each set should have its members blink in turn.
-
 bool doOsdMapElementsOverlap(osdMapElementXYInfo_t * pOsdMapElementOne, osdMapElementXYInfo_t * pOsdMapElementTwo)
 {
     int minPosXOne = pOsdMapElementOne->poiX;
@@ -356,43 +345,16 @@ bool doOsdMapElementsOverlap(osdMapElementXYInfo_t * pOsdMapElementOne, osdMapEl
     return xRangesOverlap && yOverlaps;
 }
 
-/*
-// Nice try, good effort -- BUT -- neighbors may be anywhere in the array, so this isn't good enough.
-void markOsdMapElementsForOverlap(osdMapElementXYInfo_t * pOsdMapElementXYInfos, uint16_t osdMapElementXYCount)
-{
-    // Just to be sure, clear the existing set information
-    for (int i = 0; i < osdMapElementXYCount; i++) {
-        pOsdMapElementXYInfos[i].inOverlapSet = false;
-        pOsdMapElementXYInfos[i].overlapSetIndex = -1;
-    }
-
-    // Go through all the OSD Map Elements looking for overlap of coordinates. We move left to right,
-    // marking contiguous sets of overlap.
-    for (int i = 0; i < osdMapElementXYCount - 1; i++) {
-        osdMapElementXYInfo_t * pElementLeft = &(pOsdMapElementXYInfos[i]);
-        osdMapElementXYInfo_t * pElementRight = &(pOsdMapElementXYInfos[i+1]);
-        // If Elements overlap...
-        if (doOsdMapElementsOverlap(pElementLeft, pElementRight)) {
-            // If left is in a set already, right joins that set
-            if (pElementLeft->inOverlapSet) {
-                pElementRight->inOverlapSet = true;
-                pElementRight->overlapSetIndex = pElementLeft->overlapSetIndex;
-            }
-            // If left is not in a set, we start a new set using the left's index
-            // and mark both as belonging to it.
-            else {
-                pElementLeft->inOverlapSet = true;
-                pElementLeft->overlapSetIndex = i;
-                pElementRight->inOverlapSet = true;
-                pElementRight->overlapSetIndex = i;
-            }
-        }
-    }
-}
-*/
-
-// 9/29/2018 - This isn't blinking at all. Hah!
-
+// Overlap is a bit more complicated than it first might appear. If two elements overlap, the simple check in
+// doOsdMapElementsOverlap is enough. It's more complicated overlaps that are the problem.
+// 
+// For example, say 1 overlaps 2, 2 overlaps 3, and 3 overlaps 4. 5 overlaps 6. Finally, 7 overlaps 8 and 8 overlaps 9.
+// 
+// In this case, there are three sets of overlapping elements:
+//      1,2,3,4
+//      5,6
+//      7,8,9
+// Each set should have its members blink in turn.
 void markOsdMapElementsForOverlap(osdMapElementXYInfo_t * pOsdMapElementXYInfos, uint16_t osdMapElementXYCount)
 {
     // Just to be sure, clear the existing set information
@@ -431,7 +393,14 @@ void markOsdMapElementsForOverlap(osdMapElementXYInfo_t * pOsdMapElementXYInfos,
                         // If other is in a set, but current is not, current joins other's set
                         pCurrentElement->inOverlapSet = true;
                         pCurrentElement->overlapSetIndex = pPossibleOverlappingElement->overlapSetIndex;
-                    }                    
+                    } else {
+                        // Otherwise, neither is in a set. Start one (using the LOWER index as the winner) and join both to it.
+                        int winningSetIndex = MIN(pCurrentElement->overlapSetIndex, pPossibleOverlappingElement->overlapSetIndex);                        
+                        pPossibleOverlappingElement->inOverlapSet = true;
+                        pPossibleOverlappingElement->overlapSetIndex = winningSetIndex;
+                        pCurrentElement->inOverlapSet = true;
+                        pCurrentElement->overlapSetIndex = winningSetIndex;
+                    }                   
                 }
             }
         }       
