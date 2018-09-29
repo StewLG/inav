@@ -332,6 +332,10 @@ int getOsdMapElementMaxPosX(osdMapElementXYInfo_t * pOsdMapElement)
     return maxPosX;
 }
 
+// TODO: While these overlap checks handle simple overlap pretty well, they don't yet handle complex overlap.
+// For example, 1 overlaps 2, 2 overlaps 3. This is really one set of overlapping elements where 1,2 and 3 should
+// blink in the same set. Right now these are considered two sets, and the results definitely aren't perfect.
+
 bool doOsdMapElementsOverlap(osdMapElementXYInfo_t * pOsdMapElementOne, osdMapElementXYInfo_t * pOsdMapElementTwo)
 {
     int minPosXOne = pOsdMapElementOne->poiX;
@@ -360,7 +364,7 @@ int getCountOfXYNeighbors(osdMapElementXYInfo_t * pOsdMapElementXYInfos, uint16_
 
 void markXYElementsAsNoLongerEligibleToDrawExceptOne(osdMapElementXYInfo_t * pOsdMapElementXYInfos, uint16_t osdMapElementXYCount, uint16_t indexToExempt)
 {
-    // Go through all the OSD Map Elements looking for given X,Y
+    // Go through all the OSD Map Elements looking for elements the overlap the map element at the index to exempt
     for (int i = 0; i < osdMapElementXYCount; i++) {
         if (i != indexToExempt && doOsdMapElementsOverlap(&(pOsdMapElementXYInfos[indexToExempt]), &(pOsdMapElementXYInfos[i]))) {
 			pOsdMapElementXYInfos[i].eligibleToBeDrawn = false;
@@ -565,9 +569,6 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
             }
         }
 
-
-        //  DO WE HAVE INDEX SLIPPAGE DOWN HERE????
-
         // Go through all the OSD Map Element XYs,  
 		// this time actually drawing symbols on screen. 
         for (int i = 0; i < osdMapElementXYCount; i++) {
@@ -595,15 +596,10 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
 			}
             else
             {
-                // This may not be right... remove???
-
                 // Not eligible to be drawn
                 pOsdMapElements[i].drawn = 0;
             }
 		}
-
-
-
 
     }
 
