@@ -356,6 +356,8 @@ bool doOsdMapElementsOverlap(osdMapElementXYInfo_t * pOsdMapElementOne, osdMapEl
     return xRangesOverlap && yOverlaps;
 }
 
+/*
+// Nice try, good effort -- BUT -- neighbors may be anywhere in the array, so this isn't good enough.
 void markOsdMapElementsForOverlap(osdMapElementXYInfo_t * pOsdMapElementXYInfos, uint16_t osdMapElementXYCount)
 {
     // Just to be sure, clear the existing set information
@@ -387,6 +389,55 @@ void markOsdMapElementsForOverlap(osdMapElementXYInfo_t * pOsdMapElementXYInfos,
         }
     }
 }
+*/
+
+// 9/29/2018 - This isn't blinking at all. Hah!
+
+void markOsdMapElementsForOverlap(osdMapElementXYInfo_t * pOsdMapElementXYInfos, uint16_t osdMapElementXYCount)
+{
+    // Just to be sure, clear the existing set information
+    for (int i = 0; i < osdMapElementXYCount; i++) {
+        pOsdMapElementXYInfos[i].inOverlapSet = false;
+        pOsdMapElementXYInfos[i].overlapSetIndex = -1;
+    }
+
+    // Go through all the OSD Map Elements looking for overlap of coordinates. We scan to find and mark contiguous sets of overlap.
+    for (int currentIndex = 0; currentIndex < osdMapElementXYCount; currentIndex++) {
+        // Get the current element we are looking for overlap for
+        osdMapElementXYInfo_t * pCurrentElement = &(pOsdMapElementXYInfos[currentIndex]);
+        for (int otherIndex = 0; otherIndex < osdMapElementXYCount; otherIndex++) {
+            // We don't compare to ourself
+            if (otherIndex != currentIndex) {
+                osdMapElementXYInfo_t * pPossibleOverlappingElement = &(pOsdMapElementXYInfos[otherIndex]);    
+                // If Elements overlap...
+                if (doOsdMapElementsOverlap(pCurrentElement, pPossibleOverlappingElement)) {
+                    if (pCurrentElement->inOverlapSet && pPossibleOverlappingElement->inOverlapSet) {
+                        // If they are both already in a set, the LOWER index wins.
+                        // We have to fix up ALL members of that losing set to belong to the winning set.
+                        int winningSetIndex = MIN(pCurrentElement->overlapSetIndex, pPossibleOverlappingElement->overlapSetIndex);
+                        int losingSetIndex = MAX(pCurrentElement->overlapSetIndex, pPossibleOverlappingElement->overlapSetIndex);
+                        for (int fixupIndex = 0; fixupIndex < osdMapElementXYCount; fixupIndex++) {
+                            osdMapElementXYInfo_t * pPossibleFixupElement = &(pOsdMapElementXYInfos[fixupIndex]);
+                            if (pPossibleFixupElement->inOverlapSet && pPossibleFixupElement->overlapSetIndex == losingSetIndex){
+                                pPossibleFixupElement->overlapSetIndex = winningSetIndex;
+                            }
+                        }
+                    } else if (pCurrentElement->inOverlapSet) {
+                        // If current is in a set already, but other is not, other joins current's set
+                        pPossibleOverlappingElement->inOverlapSet = true;
+                        pPossibleOverlappingElement->overlapSetIndex = pCurrentElement->overlapSetIndex;
+                    }
+                    else if (pPossibleOverlappingElement->inOverlapSet) {
+                        // If other is in a set, but current is not, current joins other's set
+                        pCurrentElement->inOverlapSet = true;
+                        pCurrentElement->overlapSetIndex = pPossibleOverlappingElement->overlapSetIndex;
+                    }                    
+                }
+            }
+        }       
+    }
+}
+
 
 bool doOsdMapElementsBelongToTheSameOverlapSet(osdMapElementXYInfo_t * pOsdMapElementOne, osdMapElementXYInfo_t * pOsdMapElementTwo)
 {
@@ -594,6 +645,8 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
 		osdMapElementXYInfos[osdMapElementXYCount].poiSymbol = GetMapSymbolForOsdDisplayType(centerSymbolDisplayType, 0, false);
         osdMapElementXYInfos[osdMapElementXYCount].hasAdditionalString = false;
         osdMapElementXYInfos[osdMapElementXYCount].additionalString[0] = '\0';
+        osdMapElementXYInfos[osdMapElementXYCount].inOverlapSet = false;
+        osdMapElementXYInfos[osdMapElementXYCount].overlapSetIndex = -1;
 		osdMapElementXYCount++;	
 
         markOsdMapElementsForOverlap(osdMapElementXYInfos, osdMapElementXYCount);
