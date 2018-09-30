@@ -723,6 +723,39 @@ void setPositionAndSymbolForMapElement(osdMapElement_t * pOsdMapElement,
     pOsdMapElement->poiDirectionInCentidegrees = calculateBearingBetweenPoints(pCenterScreenFpVector, &otherCraftPos);
 }
 
+static uint16_t osdAddOtherCrafts(const bool hasValidGpsFix, 
+                              const gpsOrigin_s * pGpsOrigin, 
+                              osdMapElement_t * pOsdMapElements,
+                              uint16_t osdMapElementCount,
+                              const fpVector3_t * pCenterScreenFpVector,
+                              const int32_t referenceHeadingInCentidegrees)
+{
+        // Add in all the other crafts we know about
+    for (int otherCraftIndex = 0; otherCraftIndex < otherCraftCount; otherCraftIndex++) {
+        // Both sides must have a valid position before we can add the other craft to the display
+        if (hasValidGpsFix && (otherCraftsToTrack[otherCraftIndex].FixType == GPS_FIX_2D || otherCraftsToTrack[otherCraftIndex].FixType == GPS_FIX_3D))
+        {
+            setPositionAndSymbolForMapElement(&(pOsdMapElements[osdMapElementCount]), 
+                                              pGpsOrigin,                                      
+                                              pCenterScreenFpVector,
+                                              &otherCraftsToTrack[otherCraftIndex].LLH, 
+                                              OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT);
+            
+            // Ground course becomes heading of the map element if this is another craft
+            pOsdMapElements[osdMapElementCount].absoluteHeadingInCentidegrees = wrap_36000(DECIDEGREES_TO_CENTIDEGREES(otherCraftsToTrack[otherCraftIndex].GroundCourseInDecidegrees));      
+            pOsdMapElements[osdMapElementCount].relativeHeadingInCentidegrees = wrap_36000(pOsdMapElements[osdMapElementCount].absoluteHeadingInCentidegrees - referenceHeadingInCentidegrees);
+            // Keep track of the altitude for relative altitude display 
+            pOsdMapElements[osdMapElementCount].altitudeInCentimeters = otherCraftsToTrack[otherCraftIndex].LLH.alt;
+            // Display as stale if needed
+            pOsdMapElements[osdMapElementCount].displayAsStale = otherCraftsToTrack[otherCraftIndex].IsStale;
+            osdMapElementCount++;
+        }
+    }
+    // Return updated count
+    return osdMapElementCount;
+
+}
+
 
 static void osdDrawMap(uint32_t * pUsedScale, 
 						const bool hasValidGpsFix, 
@@ -749,7 +782,7 @@ static void osdDrawMap(uint32_t * pUsedScale,
 {
     // Map Elements array
 	// These are the elements we will draw on the map (Other craft, home position, waypoints, etc.)
-    static int osdMapElementCount = 0;
+    static uint16_t osdMapElementCount = 0;
     static osdMapElement_t osdMapElements[MAX_OSD_ELEMENTS];
 
 	// Where the FC originally acquired GPS fix
@@ -777,27 +810,10 @@ static void osdDrawMap(uint32_t * pUsedScale,
 		osdMapElementCount++;
 	}
 
-    // Add in all the other crafts we know about
-    for (int otherCraftIndex = 0; otherCraftIndex < otherCraftCount; otherCraftIndex++) {
-        // Both sides must have a valid position before we can add the other craft to the display
-        if (hasValidGpsFix && (otherCraftsToTrack[otherCraftIndex].FixType == GPS_FIX_2D || otherCraftsToTrack[otherCraftIndex].FixType == GPS_FIX_3D))
-        {
-			setPositionAndSymbolForMapElement(&(osdMapElements[osdMapElementCount]), 
-											  pGpsOrigin, 								       
-											  pCenterScreenFpVector,
-											  &otherCraftsToTrack[otherCraftIndex].LLH, 
-											  OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT);
-			
-            // Ground course becomes heading of the map element if this is another craft
-			osdMapElements[osdMapElementCount].absoluteHeadingInCentidegrees = wrap_36000(DECIDEGREES_TO_CENTIDEGREES(otherCraftsToTrack[otherCraftIndex].GroundCourseInDecidegrees)); 		
-			osdMapElements[osdMapElementCount].relativeHeadingInCentidegrees = wrap_36000(osdMapElements[osdMapElementCount].absoluteHeadingInCentidegrees - referenceHeadingInCentidegrees);
-            // Keep track of the altitude for relative altitude display 
-            osdMapElements[osdMapElementCount].altitudeInCentimeters = otherCraftsToTrack[otherCraftIndex].LLH.alt;
-			// Display as stale if needed
-			osdMapElements[osdMapElementCount].displayAsStale = otherCraftsToTrack[otherCraftIndex].IsStale;
-            osdMapElementCount++;
-        }
-    }
+    // Add other crafts to Map elements
+    osdMapElementCount = osdAddOtherCrafts(hasValidGpsFix, pGpsOrigin, &osdMapElements[0], osdMapElementCount, pCenterScreenFpVector, referenceHeadingInCentidegrees);
+
+    
 
 	// TODO: Waypoints can go here, if we add them.
     //---------------------------------------------
