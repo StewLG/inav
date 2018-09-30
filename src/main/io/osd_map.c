@@ -1,10 +1,5 @@
-//#ifdef USE_OSD
 
-//asdfasfasfd
-
-//#if defined(USE_GPS)
-
-#define USE_MAX7456 // HACK - Why am I having to do this??
+#include "platform.h"
 
 #include "common/maths.h"
 #include "common/utils.h"
