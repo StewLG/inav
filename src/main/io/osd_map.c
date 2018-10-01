@@ -2,6 +2,7 @@
 #include "platform.h"
 
 #include "common/maths.h"
+#include "common/printf.h"
 #include "common/utils.h"
 
 #include "drivers/display.h"
@@ -53,6 +54,10 @@ static uint8_t GetMapSymbolForOsdDisplayType(osd_map_element_display_type_e osdM
                 return osdGetRotatedArrowCharacter(CENTIDEGREES_TO_DEGREES(relativeHeadingInCentidegrees));
             }
 			break;
+        case OSD_MAP_ELEMENT_DISPLAY_TYPE_WAYPOINT:
+            // Just show the 'W' character for now
+            return 'W';
+            break;
         default:
             // Show something, but this indicates a problem (an unhandled type)
             return '!';
@@ -565,7 +570,7 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
 
 		// X,Y positions and desired map symbols to be drawn there.
 		// (+1 to leave room for center element; see below)
-		osdMapElementXYInfo_t osdMapElementXYInfos[MAX_OSD_ELEMENTS+1];
+		osdMapElementXYInfo_t osdMapElementXYInfos[MAX_OSD_ELEMENTS + 1];
 
         // Go through all the OSD Map Elements, erasing prior drawings and
 		// collecting info about position and what to draw next.		
@@ -577,25 +582,34 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
 			// Automatically not eligible to be drawn if it doesn't fit on screen
 			osdMapElementXYInfos[i].eligibleToBeDrawn = osdMapElementXYInfos[i].foundFittingScale;
 			osdMapElementXYInfos[i].poiSymbol = GetMapSymbolForOsdMapElement(&(pOsdMapElements[i]));
-            // Compose Relative altitude display string
-            osdMapElementXYInfos[i].hasAdditionalString = pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT &&
-                                                          osdMapElementXYInfos[i].eligibleToBeDrawn;
+            // Clear additional string (we'll set it to something if needed below)
+            osdMapElementXYInfos[i].additionalString[0] = '\0';
+            // Some elements have a string in addition to their symbol, giving extra information like altitude.
+            osdMapElementXYInfos[i].hasAdditionalString = (pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT ||
+                                                           pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_WAYPOINT) &&
+                                                           osdMapElementXYInfos[i].eligibleToBeDrawn;
             if (osdMapElementXYInfos[i].hasAdditionalString) {
-                // Get difference in altitude between other craft and this craft
-                int32_t thisCraftAltitudeInCm = osdGetAltitude();
-                int32_t otherCraftAltitudeInCm = pOsdMapElements[i].altitudeInCentimeters;
-                int32_t altitudeDifferenceInCm = otherCraftAltitudeInCm - thisCraftAltitudeInCm;
-                osdFormatAltitudeSymbol(&(osdMapElementXYInfos[i].additionalString[0]), altitudeDifferenceInCm, false, true);                
+                // Waypoints have the waypoint number immediately after the waypoint symbol
+                if (pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_WAYPOINT) {
+                    tfp_sprintf(&(osdMapElementXYInfos[i].additionalString[0]), "%d", pOsdMapElements[i].waypointNumber);
+                }
+                // These types have difference in altitude between the map element and this craft
+                if (pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT ||
+                    pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_WAYPOINT) {
+                        int32_t thisCraftAltitudeInCm = osdGetAltitude();
+                        int32_t mapElementAltitudeInCm = pOsdMapElements[i].altitudeInCentimeters;
+                        int32_t altitudeDifferenceInCm = mapElementAltitudeInCm - thisCraftAltitudeInCm;
+                        uint16_t currentAdditionalStringLength = strlen(osdMapElementXYInfos[i].additionalString);
+                        //osdFormatAltitudeSymbol(&(osdMapElementXYInfos[i].additionalString[0]), altitudeDifferenceInCm, false, true);   
+                        osdFormatAltitudeSymbol(&(osdMapElementXYInfos[i].additionalString[currentAdditionalStringLength]), altitudeDifferenceInCm, false, true);   
+                    } 
             }
-            else
-            {
-                // Clear the string
-                osdMapElementXYInfos[i].additionalString[0] = '\0';
-            }
+
             // Clear set membership to start; we'll make a separate pass on this in a moment
             osdMapElementXYInfos[i].inOverlapSet = false;
             osdMapElementXYInfos[i].overlapSetIndex = -1;
-		}
+        }
+		
 		// For clarity
 		int osdMapElementXYCount = osdMapElementCount;
 
@@ -724,11 +738,11 @@ void setPositionAndSymbolForMapElement(osdMapElement_t * pOsdMapElement,
 }
 
 static uint16_t osdAddOtherCrafts(const bool hasValidGpsFix, 
-                              const gpsOrigin_s * pGpsOrigin, 
-                              osdMapElement_t * pOsdMapElements,
-                              uint16_t osdMapElementCount,
-                              const fpVector3_t * pCenterScreenFpVector,
-                              const int32_t referenceHeadingInCentidegrees)
+                                  const gpsOrigin_s * pGpsOrigin, 
+                                  osdMapElement_t * pOsdMapElements,
+                                  uint16_t osdMapElementCount,
+                                  const fpVector3_t * pCenterScreenFpVector,
+                                  const int32_t referenceHeadingInCentidegrees)
 {
         // Add in all the other crafts we know about
     for (int otherCraftIndex = 0; otherCraftIndex < otherCraftCount; otherCraftIndex++) {
@@ -746,6 +760,8 @@ static uint16_t osdAddOtherCrafts(const bool hasValidGpsFix,
             pOsdMapElements[osdMapElementCount].relativeHeadingInCentidegrees = wrap_36000(pOsdMapElements[osdMapElementCount].absoluteHeadingInCentidegrees - referenceHeadingInCentidegrees);
             // Keep track of the altitude for relative altitude display 
             pOsdMapElements[osdMapElementCount].altitudeInCentimeters = otherCraftsToTrack[otherCraftIndex].LLH.alt;
+            // Not a waypoint, always 0
+            pOsdMapElements[osdMapElementCount].waypointNumber = 0;
             // Display as stale if needed
             pOsdMapElements[osdMapElementCount].displayAsStale = otherCraftsToTrack[otherCraftIndex].IsStale;
             osdMapElementCount++;
@@ -753,8 +769,62 @@ static uint16_t osdAddOtherCrafts(const bool hasValidGpsFix,
     }
     // Return updated count
     return osdMapElementCount;
-
 }
+
+static uint16_t osdAddWaypoints(const bool hasValidGpsFix,   
+                                const gpsOrigin_s * pGpsOrigin,     
+                                osdMapElement_t * pOsdMapElements,
+                                uint16_t osdMapElementCount,
+                                const fpVector3_t * pCenterScreenFpVector)
+{
+    // We must have a valid GPS position before we can properly display waypoints
+    if (hasValidGpsFix) {
+        int waypointCount = getWaypointCount();
+        // Add in all the other crafts we know about
+        for (int waypointIndex = 0; waypointIndex < waypointCount; waypointIndex++) {
+            // Get current waypoint
+            navWaypoint_t currentWaypoint;
+            getWaypoint(waypointIndex, &currentWaypoint);
+
+            gpsLocation_t tmpLLH;
+            tmpLLH.lat = currentWaypoint.lat;
+            tmpLLH.lon = currentWaypoint.lon;
+            tmpLLH.alt = currentWaypoint.alt;
+
+            setPositionAndSymbolForMapElement(&(pOsdMapElements[osdMapElementCount]), 
+                                              pGpsOrigin,                                      
+                                              pCenterScreenFpVector,
+                                              &tmpLLH, 
+                                              OSD_MAP_ELEMENT_DISPLAY_TYPE_WAYPOINT);
+            // Headings not relevant to waypoints
+            pOsdMapElements[osdMapElementCount].absoluteHeadingInCentidegrees = 0;
+            pOsdMapElements[osdMapElementCount].relativeHeadingInCentidegrees = 0;
+            // Waypoints start numbering at 1
+            pOsdMapElements[osdMapElementCount].waypointNumber = waypointIndex + 1;
+            // Keep track of the altitude for relative altitude display 
+            pOsdMapElements[osdMapElementCount].altitudeInCentimeters = currentWaypoint.alt;
+            // Waypoints never go stale, since we never lose track of them
+            pOsdMapElements[osdMapElementCount].displayAsStale = false;
+            osdMapElementCount++;
+        }
+    }
+
+    // Return updated count
+    return osdMapElementCount;
+}
+
+
+/*
+
+int getWaypointCount(void);
+bool isWaypointListValid(void);
+void getWaypoint(uint8_t wpNumber, navWaypoint_t * wpData);
+void setWaypoint(uint8_t wpNumber, const navWaypoint_t * wpData);
+void resetWaypointList(void);
+bool loadNonVolatileWaypointList(void);
+bool saveNonVolatileWaypointList(void);
+
+*/
 
 
 static void osdDrawMap(uint32_t * pUsedScale, 
@@ -813,10 +883,8 @@ static void osdDrawMap(uint32_t * pUsedScale,
     // Add other crafts to Map elements
     osdMapElementCount = osdAddOtherCrafts(hasValidGpsFix, pGpsOrigin, &osdMapElements[0], osdMapElementCount, pCenterScreenFpVector, referenceHeadingInCentidegrees);
 
-    
-
-	// TODO: Waypoints can go here, if we add them.
-    //---------------------------------------------
+    // Add waypoints to Map elements
+    osdMapElementCount = osdAddWaypoints(hasValidGpsFix, pGpsOrigin, &osdMapElements[0], osdMapElementCount, pCenterScreenFpVector);
 
     osdDrawMapImpl(referenceHeadingInCentidegrees, referenceSym, centerSymbolDisplayType, &osdMapElements[0], osdMapElementCount, pUsedScale);
 }

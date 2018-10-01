@@ -26,8 +26,8 @@ extern otherCraftPosition_t otherCraftsToTrack[MAX_OTHER_CRAFTS_TO_TRACK];
  extern navigationPosEstimator_t posEstimator;
 
 // The maximum number of OSD elements we can display at one time.
-// (Maximum nubmer of crafts + 1 for special symbol [home/other craft])
-#define MAX_OSD_ELEMENTS (MAX_OTHER_CRAFTS_TO_TRACK + 1)
+// (Maximum number of crafts + 1 for special symbol [home/other craft])
+#define MAX_OSD_ELEMENTS (MAX_OTHER_CRAFTS_TO_TRACK + NAV_MAX_WAYPOINTS + 1)
 
 typedef enum {
     // Draws a home icon
@@ -35,8 +35,9 @@ typedef enum {
     // Draws symbol representing self-craft.
     OSD_MAP_ELEMENT_DISPLAY_TYPE_SELF_CRAFT,
     // Draws a rotated arrow corresponding to Craft heading.
-    OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT
-    // Other types are conceivable - numbered waypoints, for example?
+    OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT,
+    // Draws a waypoint symbol
+    OSD_MAP_ELEMENT_DISPLAY_TYPE_WAYPOINT
 } osd_map_element_display_type_e;
 
 #define MAX_ADDITIONAL_POI_TEXT_LENGTH 8
@@ -79,6 +80,8 @@ typedef struct osdMapElement_s {
     int32_t altitudeInCentimeters; 
     float poiSin;
     float poiCos;
+    // For OSD_MAP_ELEMENT_DISPLAY_TYPE_WAYPOINT, this will be the waypoint number
+    uint16_t waypointNumber;
     // The value of the symbol/character for the on-screen OSD byte
     uint16_t drawn;
     // Length of additional string (0 if no additional string)
