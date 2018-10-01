@@ -395,7 +395,7 @@ void markOsdMapElementsForOverlap(osdMapElementXYInfo_t * pOsdMapElementXYInfos,
                         pCurrentElement->overlapSetIndex = pPossibleOverlappingElement->overlapSetIndex;
                     } else {
                         // Otherwise, neither is in a set. Start one (using the LOWER index as the winner) and join both to it.
-                        int winningSetIndex = MIN(pCurrentElement->overlapSetIndex, pPossibleOverlappingElement->overlapSetIndex);                        
+                        int winningSetIndex = MIN(currentIndex, otherIndex);                        
                         pPossibleOverlappingElement->inOverlapSet = true;
                         pPossibleOverlappingElement->overlapSetIndex = winningSetIndex;
                         pCurrentElement->inOverlapSet = true;
@@ -779,9 +779,13 @@ static uint16_t osdAddWaypoints(const bool hasValidGpsFix,
 {
     // We must have a valid GPS position before we can properly display waypoints
     if (hasValidGpsFix) {
+        // There is an implicit Waypoint 0 that is the starting Waypoint. So,
+        // if there are 3 user-defined waypoints, the waypointCount will return 3,
+        // and their indexes will be 1,2 and 3. If you call getWaypoint(0,..) you will
+        // get this default starting Waypoint 0, but we're opting to skip it since
+        // iNav configurator doesn't display it.
         int waypointCount = getWaypointCount();
-        // Add in all the other crafts we know about
-        for (int waypointIndex = 0; waypointIndex < waypointCount; waypointIndex++) {
+        for (int waypointIndex = 1; waypointIndex <= waypointCount; waypointIndex++) {
             // Get current waypoint
             navWaypoint_t currentWaypoint;
             getWaypoint(waypointIndex, &currentWaypoint);
@@ -792,7 +796,7 @@ static uint16_t osdAddWaypoints(const bool hasValidGpsFix,
             tmpLLH.alt = currentWaypoint.alt;
 
             setPositionAndSymbolForMapElement(&(pOsdMapElements[osdMapElementCount]), 
-                                              pGpsOrigin,                                      
+                                              pGpsOrigin,
                                               pCenterScreenFpVector,
                                               &tmpLLH, 
                                               OSD_MAP_ELEMENT_DISPLAY_TYPE_WAYPOINT);
@@ -800,7 +804,7 @@ static uint16_t osdAddWaypoints(const bool hasValidGpsFix,
             pOsdMapElements[osdMapElementCount].absoluteHeadingInCentidegrees = 0;
             pOsdMapElements[osdMapElementCount].relativeHeadingInCentidegrees = 0;
             // Waypoints start numbering at 1
-            pOsdMapElements[osdMapElementCount].waypointNumber = waypointIndex + 1;
+            pOsdMapElements[osdMapElementCount].waypointNumber = waypointIndex;
             // Keep track of the altitude for relative altitude display 
             pOsdMapElements[osdMapElementCount].altitudeInCentimeters = currentWaypoint.alt;
             // Waypoints never go stale, since we never lose track of them
