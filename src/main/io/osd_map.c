@@ -113,7 +113,7 @@ static bool CalculatePosXYForSingleElementUsingScale(osdScreenSetup_t * pOsdScre
 }
 
 // Simple scale fitter
-static uint32_t CalculateFittingScaleForSingleElement_NEW(osdScreenSetup_t * pOsdScreenSetup, osdMapElement_t * pOsdMapElement)
+static uint32_t CalculateFittingScaleForSingleElement(osdScreenSetup_t * pOsdScreenSetup, osdMapElement_t * pOsdMapElement)
 {
 	int fittingXScale = (pOsdMapElement->poiDistanceInCentimeters / (pOsdScreenSetup->maxX - pOsdScreenSetup->midX)) * 2;
 	int fittingYScale = (pOsdMapElement->poiDistanceInCentimeters / (pOsdScreenSetup->maxY - pOsdScreenSetup->midY)) * 2;
@@ -144,7 +144,7 @@ static uint32_t CalculateFittingScaleForMap(osdScreenSetup_t * pOsdScreenSetup,
 {
     uint32_t maxScale = minimumStartingMapScale;
     for (int i = 0; i < osdMapElementCount; i++) {
-        uint32_t fittingScaleForCurrentElement = CalculateFittingScaleForSingleElement_NEW(pOsdScreenSetup, &(osdMapElements[i]));
+        uint32_t fittingScaleForCurrentElement = CalculateFittingScaleForSingleElement(pOsdScreenSetup, &(osdMapElements[i]));
         maxScale = MAX(fittingScaleForCurrentElement, maxScale);
     }
     // The largest scale should encompass everything
@@ -282,8 +282,6 @@ uint32_t mapScaleAdjustmentFromZoomChannel(uint32_t currentAutoScale)
             return currentAutoScale;
         }
 
-        // TODO: Make sure that channelValue is really only 1000-2000, right?
-
         switch (osdConfig()->map_scale_zoom_mode) {
             // In the next two modes, the zoom channel works relative to the current Auto scale. The idea is that Auto scale is often doing *almost* the right
             // thing, and just needs a little correction, or that it at least provides a good starting point.
@@ -394,7 +392,7 @@ void markOsdMapElementsForOverlap(osdMapElementXYInfo_t * pOsdMapElementXYInfos,
                         pCurrentElement->inOverlapSet = true;
                         pCurrentElement->overlapSetIndex = pPossibleOverlappingElement->overlapSetIndex;
                     } else {
-                        // Otherwise, neither is in a set. Start one (using the LOWER index as the winner) and join both to it.
+                        // Otherwise, neither is in a set. Start one (using the LOWER index as the winning set index) and join both to it.
                         int winningSetIndex = MIN(currentIndex, otherIndex);                        
                         pPossibleOverlappingElement->inOverlapSet = true;
                         pPossibleOverlappingElement->overlapSetIndex = winningSetIndex;
@@ -535,12 +533,11 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
 
     switch (osdConfig()->units) {
         case OSD_UNIT_IMPERIAL:
-			// TODO: Fix potential scale issues for Imperial!!!
+			// TODO: Fix potential scale issues for Imperial. Note, this is the way I found this. -- SLG
             initialScale = 16; // 16m ~= 0.01miles
-            //scaleToUnit = 100 / 1609.3440f; // scale to 0.01mi for osdFormatCentiNumber()
-			scaleToUnit = 10 / 1609.3440f; // scale to 0.01mi for osdFormatCentiNumber() -- SLG
+            scaleToUnit = 1 / 1609.3440f; // scale to 0.01mi for osdFormatCentiNumber()
             scaleUnitDivisor = 0;			
-			// Scaling should move to feet I think below a mile? But this is how I found it... -- SLG
+			// Scaling should move to feet I think below a mile? -- SLG
             symUnscaled = SYM_MI;
             symScaled = SYM_MI;
             maxDecimals = 2;
@@ -548,9 +545,8 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
         case OSD_UNIT_UK:
             FALLTHROUGH;
         case OSD_UNIT_METRIC:
-            initialScale = 100; // 10m as initial scale
-            //scaleToUnit = 100; // scale to cm for osdFormatCentiNumber()
-			scaleToUnit = 10;    // Tscale to cm for osdFormatCentiNumber() -- SLG
+            initialScale = 10;       // 10m as initial scale
+			scaleToUnit = 1;         // scale to cm for osdFormatCentiNumber()
             scaleUnitDivisor = 1000; // Convert to km when scale gets bigger than 999m
             symUnscaled = SYM_M;
             symScaled = SYM_KM;
