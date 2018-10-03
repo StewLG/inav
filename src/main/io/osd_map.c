@@ -850,7 +850,7 @@ static uint16_t osdAddOtherCrafts(const bool hasValidGpsFix,
                                   const fpVector3_t * pCenterScreenFpVector,
                                   const int32_t referenceHeadingInCentidegrees)
 {
-        // Add in all the other crafts we know about
+    // Add in all the other crafts we know about
     for (int otherCraftIndex = 0; otherCraftIndex < otherCraftCount; otherCraftIndex++) {
         // Both sides must have a valid position before we can add the other craft to the display
         if (hasValidGpsFix && (otherCraftsToTrack[otherCraftIndex].FixType == GPS_FIX_2D || otherCraftsToTrack[otherCraftIndex].FixType == GPS_FIX_3D))
