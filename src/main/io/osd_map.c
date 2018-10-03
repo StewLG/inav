@@ -512,11 +512,6 @@ static void osdDrawMapElementKey(osdMapElement_t * pOsdMapElements,
     // Erase previous display, if any
     int poiX = OSD_MAP_ELEMENT_KEY_X_POS;
     int poiY = OSD_MAP_ELEMENT_KEY_Y_POS;
-
-
-	// This erase seems to be problematic when combined with outputing craft name -- together they are the last straw on too much time
-	// taken in an individual draw loop, I'm really not sure. Anyhow display freezes while this is happening. Guess I need to speed
-	// it up?
     
     if (countOfLinesLastDrawn > 0) {
         for (int lineIndex = 0; lineIndex < countOfLinesLastDrawn; lineIndex++) {
@@ -526,16 +521,15 @@ static void osdDrawMapElementKey(osdMapElement_t * pOsdMapElements,
         }
     }
     
-	/*
+    /*
     if (countOfLinesLastDrawn > 0) {
         for (int lineIndex = 0; lineIndex < countOfLinesLastDrawn; lineIndex++) {
-            char * pBlankLine = "                         ";
-            //pBlankLine[DISPLAY_MAX_STRING_SIZE-poiX] = '\0';
+            char * pBlankLine = "                              ";
+            pBlankLine[DISPLAY_MAX_STRING_SIZE-poiX] = '\0';
             displayWriteWithAttr(osdDisplayPort, poiX, poiY + lineIndex, pBlankLine, TEXT_ATTRIBUTES_NONE);
         }
     }
-	*/
-
+    */
 
     // If we aren't showing the key, exit
     if (!OSD_MAP_ELEMENT_KEY_SHOWN) {
@@ -568,8 +562,7 @@ static void osdDrawMapElementKey(osdMapElement_t * pOsdMapElements,
         osdFormatDistanceStrImpl(&tempDistanceString[1], pOsdMapElements[i].poiDistanceInCentimeters, false);
         displayWriteWithAttr(osdDisplayPort, poiX, poiY, tempDistanceString, TEXT_ATTRIBUTES_NONE); 
         poiX += strlen(tempDistanceString);
-
-		/*
+        /*
         // If this is another craft, display its name at end
         if (pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT) {
 			// Add separator character        
@@ -584,7 +577,7 @@ static void osdDrawMapElementKey(osdMapElement_t * pOsdMapElements,
             displayWriteWithAttr(osdDisplayPort, poiX, poiY, tempOtherCraftName, TEXT_ATTRIBUTES_NONE);
             poiX += strlen(tempOtherCraftName);
         }
-		*/
+        */
         
         // Move to next line
 		lineLengthsLastDrawn[i] = poiX - OSD_MAP_ELEMENT_KEY_X_POS;
