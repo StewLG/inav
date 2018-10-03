@@ -520,16 +520,6 @@ static void osdDrawMapElementKey(osdMapElement_t * pOsdMapElements,
             }
         }
     }
-    
-    /*
-    if (countOfLinesLastDrawn > 0) {
-        for (int lineIndex = 0; lineIndex < countOfLinesLastDrawn; lineIndex++) {
-            char * pBlankLine = "                              ";
-            pBlankLine[DISPLAY_MAX_STRING_SIZE-poiX] = '\0';
-            displayWriteWithAttr(osdDisplayPort, poiX, poiY + lineIndex, pBlankLine, TEXT_ATTRIBUTES_NONE);
-        }
-    }
-    */
 
     // If we aren't showing the key, exit
     if (!OSD_MAP_ELEMENT_KEY_SHOWN) {
@@ -562,23 +552,26 @@ static void osdDrawMapElementKey(osdMapElement_t * pOsdMapElements,
         osdFormatDistanceStrImpl(&tempDistanceString[1], pOsdMapElements[i].poiDistanceInCentimeters, false);
         displayWriteWithAttr(osdDisplayPort, poiX, poiY, tempDistanceString, TEXT_ATTRIBUTES_NONE); 
         poiX += strlen(tempDistanceString);
-        /*
+        
+
         // If this is another craft, display its name at end
         if (pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT) {
 			// Add separator character        
 			displayWriteChar(osdDisplayPort, poiX++, poiY, SYM_BLANK);
             // Upper case the other craft name since our character set on the MAX chipset is limited to only upper case characters
             char tempOtherCraftName[MAX_NAME_LENGTH];
-            strcpy(tempOtherCraftName, (const char *)otherCraftsToTrack[pOsdMapElements[i].otherCraftIndex].CraftName);
+            strcpy(tempOtherCraftName, (const char *)otherCraftsToTrack[pOsdMapElements[i].otherCraftIndex].CraftName);            
             for (uint8_t c = 0; c < strlen(tempOtherCraftName); c++) {
                 tempOtherCraftName[c] = sl_toupper(tempOtherCraftName[c]);
             }
+			
+			// Either there is something wrong with the code below or it takes too long, I'm not sure..??
+			
 			// Write out other craft name
-            displayWriteWithAttr(osdDisplayPort, poiX, poiY, tempOtherCraftName, TEXT_ATTRIBUTES_NONE);
-            poiX += strlen(tempOtherCraftName);
+            //displayWriteWithAttr(osdDisplayPort, poiX, poiY, tempOtherCraftName, TEXT_ATTRIBUTES_NONE);
+            //poiX += strlen(tempOtherCraftName);
         }
-        */
-        
+                
         // Move to next line
 		lineLengthsLastDrawn[i] = poiX - OSD_MAP_ELEMENT_KEY_X_POS;
         poiX = OSD_MAP_ELEMENT_KEY_X_POS;
