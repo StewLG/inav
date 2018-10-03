@@ -55,6 +55,8 @@ otherCraftPosition_t * findOldestCraftPosition();
 void removeOtherCraft(int craftIndex);
 
 typedef struct otherCraftConfig_s {
+    // TODO: MSP Serial Port where we should SOLICIT other craft information ourselves.
+
     // If true, MSP connections are welcome to send other Craft position information, if known.    
     bool msp_should_send_craft_positions; 
     // Stale interval (craft marked as stale on OSD map)

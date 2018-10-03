@@ -289,11 +289,11 @@ static int digitCount(int32_t value)
  * prefixed by a a symbol to indicate the unit used.
  * @param dist Distance in centimeters
  */
-static void osdFormatDistanceSymbol(char *buff, int32_t dist)
+void osdFormatDistanceSymbol(char *buff, int32_t dist, bool rightAlign)
 {
     switch ((osd_unit_e)osdConfig()->units) {
     case OSD_UNIT_IMPERIAL:
-        if (osdFormatCentiNumber(buff + 1, CENTIMETERS_TO_CENTIFEET(dist), FEET_PER_MILE, 0, 3, 3)) {
+        if (osdFormatCentiNumberImpl(buff + 1, CENTIMETERS_TO_CENTIFEET(dist), FEET_PER_MILE, 0, 3, 3, rightAlign, false)) {
             buff[0] = SYM_DIST_MI;
         } else {
             buff[0] = SYM_DIST_FT;
@@ -302,7 +302,7 @@ static void osdFormatDistanceSymbol(char *buff, int32_t dist)
     case OSD_UNIT_UK:
         FALLTHROUGH;
     case OSD_UNIT_METRIC:
-        if (osdFormatCentiNumber(buff + 1, dist, METERS_PER_KILOMETER, 0, 3, 3)) {
+        if (osdFormatCentiNumberImpl(buff + 1, dist, METERS_PER_KILOMETER, 0, 3, 3, rightAlign, false)) {
             buff[0] = SYM_DIST_KM;
         } else {
             buff[0] = SYM_DIST_M;
@@ -311,11 +311,16 @@ static void osdFormatDistanceSymbol(char *buff, int32_t dist)
     }
 }
 
+static void osdFormatDistanceStr(char *buff, int32_t dist)
+{
+    return osdFormatDistanceStrImpl(buff, dist, true);
+}
+
 /**
  * Converts distance into a string based on the current unit system.
  * @param dist Distance in centimeters
  */
- static void osdFormatDistanceStr(char *buff, int32_t dist)
+ void osdFormatDistanceStrImpl(char *buff, int32_t dist, bool showDistanceTypeSymbolAtEnd)
  {
      int32_t centifeet;
      switch ((osd_unit_e)osdConfig()->units) {
@@ -342,6 +347,10 @@ static void osdFormatDistanceSymbol(char *buff, int32_t dist)
                 (abs(dist) % (100 * METERS_PER_KILOMETER)) / METERS_PER_KILOMETER, SYM_KM);
          }
          break;
+     }
+     // Erase final character if not wanted
+     if (!showDistanceTypeSymbolAtEnd) {
+        buff[strlen(buff)-1] = '\0';
      }
  }
 
@@ -1116,7 +1125,7 @@ static bool osdDrawSingleElement(uint8_t item)
     case OSD_HOME_DIST:
         {
             buff[0] = SYM_HOME;
-            osdFormatDistanceSymbol(&buff[1], GPS_distanceToHome * 100);
+            osdFormatDistanceSymbol(&buff[1], GPS_distanceToHome * 100, false);
             uint16_t dist_alarm = osdConfig()->dist_alarm;
             if (dist_alarm > 0 && GPS_distanceToHome > dist_alarm) {
                 TEXT_ATTRIBUTES_ADD_BLINK(elemAttr);
@@ -1126,7 +1135,7 @@ static bool osdDrawSingleElement(uint8_t item)
 
     case OSD_TRIP_DIST:
         buff[0] = SYM_TRIP_DIST;
-        osdFormatDistanceSymbol(buff + 1, getTotalTravelDistance());
+        osdFormatDistanceSymbol(buff + 1, getTotalTravelDistance(), false);
         break;
 
     case OSD_HEADING:
@@ -1331,7 +1340,7 @@ static bool osdDrawSingleElement(uint8_t item)
             buff[5] = '\0';
             TEXT_ATTRIBUTES_ADD_BLINK(elemAttr);
         } else {
-            osdFormatDistanceSymbol(buff + 1, distanceMeters * 100);
+            osdFormatDistanceSymbol(buff + 1, distanceMeters * 100, false);
             if (distanceMeters == 0)
                 TEXT_ATTRIBUTES_ADD_BLINK(elemAttr);
         }

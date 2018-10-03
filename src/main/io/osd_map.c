@@ -3,6 +3,7 @@
 
 #include "common/maths.h"
 #include "common/printf.h"
+#include "common/string_light.h"
 #include "common/utils.h"
 
 #include "drivers/display.h"
@@ -69,9 +70,6 @@ static uint8_t GetMapSymbolForOsdMapElement(osdMapElement_t * pOsdMapElement)
 {
 	return GetMapSymbolForOsdDisplayType(pOsdMapElement->osdMapElementDisplayType, pOsdMapElement->relativeHeadingInCentidegrees, pOsdMapElement->displayAsStale);
 }
-
-const int OSDCharWidth = 12;
-const int OSDCharHeight = 18;
 
 // Calculates Pos X & Y for a point of interest using the given scale value.
 // Puts X,Y values into poiX and poiY.
@@ -474,14 +472,138 @@ int getNeighborIndexForMultipleXYInSameLocation(osdMapElementXYInfo_t * pOsdMapE
 	return neighborXYInfoIndexToDraw;
 }
 
+/*
+typedef enum {
+    // Text in key should be top aligned
+    OSD_MAP_ELEMENT_KEY_TOP_ALIGN,
+    // Text in key should be bottom aligned
+    OSD_MAP_ELEMENT_KEY_BOTTOM_ALIGN,
+} osd_map_element_key_align_type_e;
+*/
+
+static void osdDrawMapElementKey(osdMapElement_t * pOsdMapElements, 
+                                 uint16_t osdMapElementCount, 
+                                 osdMapElementXYInfo_t * pOsdMapElementXYInfos)
+{
+    // TODO: Make these consts configurable 
+
+    // Should the element key be shown at all?
+    const bool OSD_MAP_ELEMENT_KEY_SHOWN = true;
+    
+    // This is not configurable; this is the height of the screen in characters
+    // TODO: Isn't this available somewhere as a define for the MAX chip? Find it..
+    //const int MAX_OSD_MAP_ELEMENT_KEY_LINE_COUNT_POSSIBLE_ON_SCREEN = 14;
+
+    // How many lines maximum in the key? Should be user configurable.
+    #define MAX_OSD_MAP_ELEMENT_KEY_LINE_COUNT 3
+    // Position of the key onscreen
+    const int OSD_MAP_ELEMENT_KEY_X_POS = 2;
+    const int OSD_MAP_ELEMENT_KEY_Y_POS = 2;
+
+    // Hardcoded for now; this will erase things it does not have to, so needs fixing.
+	// TODO: Array of actual key name lengths.
+   // const int MAX_OSD_MAP_ELMENT_KEY_LINE_LENGTH = 12;
+
+    // How many lines did we draw last time?
+    static int countOfLinesLastDrawn = 0;
+	// What were the lengths of those lines?
+	static int lineLengthsLastDrawn[MAX_OSD_MAP_ELEMENT_KEY_LINE_COUNT];
+
+    // Erase previous display, if any
+    int poiX = OSD_MAP_ELEMENT_KEY_X_POS;
+    int poiY = OSD_MAP_ELEMENT_KEY_Y_POS;
+
+
+	// This erase seems to be problematic when combined with outputing craft name -- together they are the last straw on too much time
+	// taken in an individual draw loop, I'm really not sure. Anyhow display freezes while this is happening. Guess I need to speed
+	// it up?
+    
+    if (countOfLinesLastDrawn > 0) {
+        for (int lineIndex = 0; lineIndex < countOfLinesLastDrawn; lineIndex++) {
+            for (int charXIndex = 0; charXIndex < lineLengthsLastDrawn[lineIndex]; charXIndex++) {
+                displayWriteChar(osdDisplayPort, poiX + charXIndex, poiY + lineIndex, SYM_BLANK);    
+            }
+        }
+    }
+    
+	/*
+    if (countOfLinesLastDrawn > 0) {
+        for (int lineIndex = 0; lineIndex < countOfLinesLastDrawn; lineIndex++) {
+            char * pBlankLine = "                         ";
+            //pBlankLine[DISPLAY_MAX_STRING_SIZE-poiX] = '\0';
+            displayWriteWithAttr(osdDisplayPort, poiX, poiY + lineIndex, pBlankLine, TEXT_ATTRIBUTES_NONE);
+        }
+    }
+	*/
+
+
+    // If we aren't showing the key, exit
+    if (!OSD_MAP_ELEMENT_KEY_SHOWN) {
+		countOfLinesLastDrawn = 0;
+        return;
+    }    
+    
+    // Go through all the OSD MapElements..
+    poiX = OSD_MAP_ELEMENT_KEY_X_POS;
+    poiY = OSD_MAP_ELEMENT_KEY_Y_POS;
+    countOfLinesLastDrawn = 0;
+    for (int i = 0; i < osdMapElementCount && countOfLinesLastDrawn < MAX_OSD_MAP_ELEMENT_KEY_LINE_COUNT; i++) {
+		// TODO: Rework this all as sprintf??
+        // Symbol
+        displayWriteChar(osdDisplayPort, poiX, poiY, pOsdMapElementXYInfos[i].poiSymbol);
+        poiX += 1;
+        // Normal additional string (as can appear next to map elements on the map)
+        if (pOsdMapElementXYInfos[i].hasAdditionalString) {
+            // Write out additional string
+            int additionalStringLength = (int)strlen(pOsdMapElementXYInfos[i].additionalString);
+            displayWriteWithAttr(osdDisplayPort, poiX, poiY, pOsdMapElementXYInfos[i].additionalString, TEXT_ATTRIBUTES_NONE);
+            poiX += additionalStringLength;
+        }        
+        // Additionally, in the key we show distance to the map element
+        char tempDistanceString[MAX_ADDITIONAL_POI_TEXT_LENGTH];  
+        // Add separator character        
+        displayWriteChar(osdDisplayPort, poiX++, poiY, SYM_BLANK);
+        // Write out distance to map element
+        osdFormatDistanceSymbol(&tempDistanceString[0], pOsdMapElements[i].poiDistanceInCentimeters, true);
+        osdFormatDistanceStrImpl(&tempDistanceString[1], pOsdMapElements[i].poiDistanceInCentimeters, false);
+        displayWriteWithAttr(osdDisplayPort, poiX, poiY, tempDistanceString, TEXT_ATTRIBUTES_NONE); 
+        poiX += strlen(tempDistanceString);
+
+		/*
+        // If this is another craft, display its name at end
+        if (pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT) {
+			// Add separator character        
+			displayWriteChar(osdDisplayPort, poiX++, poiY, SYM_BLANK);
+            // Upper case the other craft name since our character set on the MAX chipset is limited to only upper case characters
+            char tempOtherCraftName[MAX_NAME_LENGTH];
+            strcpy(tempOtherCraftName, (const char *)otherCraftsToTrack[pOsdMapElements[i].otherCraftIndex].CraftName);
+            for (uint8_t c = 0; c < strlen(tempOtherCraftName); c++) {
+                tempOtherCraftName[c] = sl_toupper(tempOtherCraftName[c]);
+            }
+			// Write out other craft name
+            displayWriteWithAttr(osdDisplayPort, poiX, poiY, tempOtherCraftName, TEXT_ATTRIBUTES_NONE);
+            poiX += strlen(tempOtherCraftName);
+        }
+		*/
+        
+        // Move to next line
+		lineLengthsLastDrawn[i] = poiX - OSD_MAP_ELEMENT_KEY_X_POS;
+        poiX = OSD_MAP_ELEMENT_KEY_X_POS;
+        poiY++;
+
+        countOfLinesLastDrawn++;               
+    }    
+}        
+
+
 static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t referenceSym,  // Top right corner legend element
                             // Symbol for center (home, craft, etc.)
                             osd_map_element_display_type_e centerSymbolDisplayType,
                             // Array of OSD elements other than the center element. All positions
                             // are relative to the center.
-                            osdMapElement_t * pOsdMapElements, // MAX_OSD_ELEMENTS
+                            osdMapElement_t * pOsdMapElements, 
                             // How many OSD Map elements are actually in array
-                            int8_t osdMapElementCount,
+                            uint16_t osdMapElementCount,
                             // Scale being used to draw map at present by the map
                             uint32_t *pMapUsedScale)
 
@@ -531,10 +653,12 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
     char symScaled;
     int maxDecimals;
 
+    initialScale = osdConfig()->map_min_zoom_scale_in_centimeters;
+
     switch (osdConfig()->units) {
         case OSD_UNIT_IMPERIAL:
 			// TODO: Fix potential scale issues for Imperial. Note, this is the way I found this. -- SLG
-            initialScale = 16; // 16m ~= 0.01miles
+            //initialScale = 16; // 16m ~= 0.01miles
             scaleToUnit = 1 / 1609.3440f; // scale to 0.01mi for osdFormatCentiNumber()
             scaleUnitDivisor = 0;			
 			// Scaling should move to feet I think below a mile? -- SLG
@@ -545,7 +669,7 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
         case OSD_UNIT_UK:
             FALLTHROUGH;
         case OSD_UNIT_METRIC:
-            initialScale = 10;       // 10m as initial scale
+            //initialScale = 10;       // 10m as initial scale
 			scaleToUnit = 1;         // scale to cm for osdFormatCentiNumber()
             scaleUnitDivisor = 1000; // Convert to km when scale gets bigger than 999m
             symUnscaled = SYM_M;
@@ -596,7 +720,6 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
                         int32_t mapElementAltitudeInCm = pOsdMapElements[i].altitudeInCentimeters;
                         int32_t altitudeDifferenceInCm = mapElementAltitudeInCm - thisCraftAltitudeInCm;
                         uint16_t currentAdditionalStringLength = strlen(osdMapElementXYInfos[i].additionalString);
-                        //osdFormatAltitudeSymbol(&(osdMapElementXYInfos[i].additionalString[0]), altitudeDifferenceInCm, false, true);   
                         osdFormatAltitudeSymbol(&(osdMapElementXYInfos[i].additionalString[currentAdditionalStringLength]), altitudeDifferenceInCm, false, true);   
                     } 
             }
@@ -652,7 +775,7 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
         for (int i = 0; i < osdMapElementXYCount; i++) {
 			// Is this element able to be drawn, potentially?
 			if (osdMapElementXYInfos[i].eligibleToBeDrawn) {
-				// We'll draw this map element				                
+				// We'll draw this map element
                 int poiX = osdMapElementXYInfos[i].poiX;
                 int poiY = osdMapElementXYInfos[i].poiY;
                 uint8_t poiSymbol = osdMapElementXYInfos[i].poiSymbol;
@@ -679,6 +802,7 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
             }
 		}
 
+        osdDrawMapElementKey(pOsdMapElements, osdMapElementCount, &osdMapElementXYInfos[0]);        
     }
 
     // Draw the used scale
@@ -758,6 +882,8 @@ static uint16_t osdAddOtherCrafts(const bool hasValidGpsFix,
             pOsdMapElements[osdMapElementCount].altitudeInCentimeters = otherCraftsToTrack[otherCraftIndex].LLH.alt;
             // Not a waypoint, always 0
             pOsdMapElements[osdMapElementCount].waypointNumber = 0;
+            // Is an other craft, stash index for later reference
+            pOsdMapElements[osdMapElementCount].otherCraftIndex = otherCraftIndex;
             // Display as stale if needed
             pOsdMapElements[osdMapElementCount].displayAsStale = otherCraftsToTrack[otherCraftIndex].IsStale;
             osdMapElementCount++;
@@ -774,12 +900,12 @@ static uint16_t osdAddWaypoints(const bool hasValidGpsFix,
                                 const fpVector3_t * pCenterScreenFpVector)
 {
     // We must have a valid GPS position before we can properly display waypoints
-    if (hasValidGpsFix) {
+    if (hasValidGpsFix && isWaypointListValid()) {
         // There is an implicit Waypoint 0 that is the starting Waypoint. So,
         // if there are 3 user-defined waypoints, the waypointCount will return 3,
         // and their indexes will be 1,2 and 3. If you call getWaypoint(0,..) you will
         // get this default starting Waypoint 0, but we're opting to skip it since
-        // iNav configurator doesn't display it.
+        // iNav configurator doesn't display it.        
         int waypointCount = getWaypointCount();
         for (int waypointIndex = 1; waypointIndex <= waypointCount; waypointIndex++) {
             // Get current waypoint
@@ -801,6 +927,8 @@ static uint16_t osdAddWaypoints(const bool hasValidGpsFix,
             pOsdMapElements[osdMapElementCount].relativeHeadingInCentidegrees = 0;
             // Waypoints start numbering at 1
             pOsdMapElements[osdMapElementCount].waypointNumber = waypointIndex;
+            // Is not another craft, always 0
+            pOsdMapElements[osdMapElementCount].otherCraftIndex = 0;            
             // Keep track of the altitude for relative altitude display 
             pOsdMapElements[osdMapElementCount].altitudeInCentimeters = currentWaypoint.alt;
             // Waypoints never go stale, since we never lose track of them
@@ -814,17 +942,7 @@ static uint16_t osdAddWaypoints(const bool hasValidGpsFix,
 }
 
 
-/*
 
-int getWaypointCount(void);
-bool isWaypointListValid(void);
-void getWaypoint(uint8_t wpNumber, navWaypoint_t * wpData);
-void setWaypoint(uint8_t wpNumber, const navWaypoint_t * wpData);
-void resetWaypointList(void);
-bool loadNonVolatileWaypointList(void);
-bool saveNonVolatileWaypointList(void);
-
-*/
 
 
 static void osdDrawMap(uint32_t * pUsedScale, 

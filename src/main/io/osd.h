@@ -230,5 +230,7 @@ int osdNormalizeAngle(int angle);
 void osdFormatAltitudeSymbol(char *buff, int32_t altInCm, bool rightAlign, bool showPositiveSignCharacter);
 bool osdFormatCentiNumberImpl(char *buff, int32_t centivalue, uint32_t scale, int maxDecimals, int maxScaledDecimals, int length, bool rightAlign, bool showPositiveSignCharacter);
 bool osdFormatCentiNumber(char *buff, int32_t centivalue, uint32_t scale, int maxDecimals, int maxScaledDecimals, int length);
+void osdFormatDistanceSymbol(char *buff, int32_t dist, bool rightAlign);
+void osdFormatDistanceStrImpl(char *buff, int32_t dist, bool showDistanceTypeSymbolAtEnd);
 
 uint8_t osdGetRotatedArrowCharacter(int rotationInDegrees);

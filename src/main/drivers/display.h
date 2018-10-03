@@ -28,6 +28,13 @@ typedef struct displayConfig_s {
 
 PG_DECLARE(displayConfig_t, displayConfig);
 
+// XXX: This is the number of characters in a MAX7456 line.
+// Increment this number appropiately or enable support for
+// multiple iterations in displayWriteWithAttr() if bigger
+// displays are supported (implementation can be found in commit
+// 22a48278 before it was deleted).
+#define DISPLAY_MAX_STRING_SIZE 30
+
 // Represents the attributes for a given piece of text
 // either a single character or a string. For forward
 // compatibility, always use the TEXT_ATTRIBUTE...

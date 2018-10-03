@@ -31,12 +31,7 @@
 
 #define SW_BLINK_CYCLE_MS 200 // 200ms on / 200ms off
 
-// XXX: This is the number of characters in a MAX7456 line.
-// Increment this number appropiately or enable support for
-// multiple iterations in displayWriteWithAttr() if bigger
-// displays are supported (implementation can be found in commit
-// 22a48278 before it was deleted).
-#define DISPLAY_MAX_STRING_SIZE 30
+
 
 PG_REGISTER_WITH_RESET_TEMPLATE(displayConfig_t, displayConfig, PG_DISPLAY_CONFIG, 0);
 

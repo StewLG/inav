@@ -40,6 +40,13 @@ typedef enum {
     OSD_MAP_ELEMENT_DISPLAY_TYPE_WAYPOINT
 } osd_map_element_display_type_e;
 
+typedef enum {
+    // Text in key should be top aligned
+    OSD_MAP_ELEMENT_KEY_TOP_ALIGN,
+    // Text in key should be bottom aligned
+    OSD_MAP_ELEMENT_KEY_BOTTOM_ALIGN,
+} osd_map_element_key_align_type_e;
+
 #define MAX_ADDITIONAL_POI_TEXT_LENGTH 8
 
 typedef struct osdMapElementXYInfo {
@@ -64,6 +71,9 @@ typedef struct osdMapElementXYInfo {
     int overlapSetIndex;
 } osdMapElementXYInfo_t;
 
+// TODO: Link structs via index chaining?
+// Also link to OtherCrafts for same purpose?
+
 typedef struct osdMapElement_s {
     osd_map_element_display_type_e osdMapElementDisplayType;
     uint32_t poiDistanceInCentimeters;
@@ -82,6 +92,8 @@ typedef struct osdMapElement_s {
     float poiCos;
     // For OSD_MAP_ELEMENT_DISPLAY_TYPE_WAYPOINT, this will be the waypoint number
     uint16_t waypointNumber;
+    // For OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT, this will be the index into otherCraftsToTrack.
+    uint8_t otherCraftIndex;
     // The value of the symbol/character for the on-screen OSD byte
     uint16_t drawn;
     // Length of additional string (0 if no additional string)
@@ -89,6 +101,9 @@ typedef struct osdMapElement_s {
     // Set to true when this OSD element is "stale", and should be shown to be a uncertain position in the display.
     bool displayAsStale;
 } osdMapElement_t;
+
+static const int OSDCharWidth = 12;
+static const int OSDCharHeight = 18;
 
 void eraseSingleMapElementFromDisplay(osdMapElement_t * pOsdMapElement);
 void eraseAllMapElementsFromDisplay(osdMapElement_t * pOsdMapElements, int osdMapElementCount);
