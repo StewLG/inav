@@ -867,6 +867,7 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
             }
 		}
 
+        // So far, this is the key bottleneck I can discover. But why? Why is this in particular painful?
         osdDrawMapElementKey(pOsdMapElements, osdMapElementCount, &osdMapElementXYInfos[0]);        
     }
 
