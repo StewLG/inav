@@ -781,12 +781,19 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
                 // These types have difference in altitude between the map element and this craft
                 if (pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT ||
                     pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_WAYPOINT) {
-                        int32_t thisCraftAltitudeInCm = osdGetAltitude();
+                        // Default to using absolute altitude for comparison. OTHER_CRAFT deliver their altitudes to
+                        // us in absolute altitude (cm above sea level), for example.
+                        int32_t thisCraftAltitudeInCm = gpsSol.llh.alt;
+                        // Waypoints give their altitude in relative altitude, however, so we need to use relative
+                        // altitude for comparison. 
+                        if (pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_WAYPOINT) {
+                            thisCraftAltitudeInCm = osdGetAltitude();    
+                        }
                         int32_t mapElementAltitudeInCm = pOsdMapElements[i].altitudeInCentimeters;
                         int32_t altitudeDifferenceInCm = mapElementAltitudeInCm - thisCraftAltitudeInCm;
                         uint16_t currentAdditionalStringLength = strlen(osdMapElementXYInfos[i].additionalString);
-                        osdFormatAltitudeSymbol(&(osdMapElementXYInfos[i].additionalString[currentAdditionalStringLength]), altitudeDifferenceInCm, false, true);   
-                    } 
+                        osdFormatAltitudeSymbol(&(osdMapElementXYInfos[i].additionalString[currentAdditionalStringLength]), altitudeDifferenceInCm, false, true);
+                }
             }
 
             // Clear set membership to start; we'll make a separate pass on this in a moment
