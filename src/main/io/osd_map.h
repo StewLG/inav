@@ -31,13 +31,13 @@ extern otherCraftPosition_t otherCraftsToTrack[MAX_OTHER_CRAFTS_TO_TRACK];
 
 typedef enum {
     // Draws a home icon
-    OSD_MAP_ELEMENT_DISPLAY_TYPE_HOME_ICON,
-    // Draws symbol representing self-craft.
-    OSD_MAP_ELEMENT_DISPLAY_TYPE_SELF_CRAFT,
+    OSD_MAP_ELEMENT_DISPLAY_TYPE_HOME_ICON = 1,
     // Draws a rotated arrow corresponding to Craft heading.
-    OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT,
+    OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT = 2,
     // Draws a waypoint symbol
-    OSD_MAP_ELEMENT_DISPLAY_TYPE_WAYPOINT
+    OSD_MAP_ELEMENT_DISPLAY_TYPE_WAYPOINT = 3,
+    // Draws symbol representing self-craft.
+    OSD_MAP_ELEMENT_DISPLAY_TYPE_SELF_CRAFT = 4
 } osd_map_element_display_type_e;
 
 typedef enum {

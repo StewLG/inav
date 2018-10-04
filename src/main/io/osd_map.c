@@ -4,6 +4,7 @@
 #include "common/maths.h"
 #include "common/printf.h"
 #include "common/string_light.h"
+#include "common/typeconversion.h"
 #include "common/utils.h"
 
 #include "drivers/display.h"
@@ -403,7 +404,6 @@ void markOsdMapElementsForOverlap(osdMapElementXYInfo_t * pOsdMapElementXYInfos,
     }
 }
 
-
 bool doOsdMapElementsBelongToTheSameOverlapSet(osdMapElementXYInfo_t * pOsdMapElementOne, osdMapElementXYInfo_t * pOsdMapElementTwo)
 {
     return pOsdMapElementOne->inOverlapSet && pOsdMapElementTwo->inOverlapSet &&
@@ -481,6 +481,71 @@ typedef enum {
 } osd_map_element_key_align_type_e;
 */
 
+/*
+typedef struct hsvColor_s {
+    uint16_t h; // 0 - 359
+    uint8_t s; // 0 - 255
+    uint8_t v; // 0 - 255
+} hsvColor_t;
+*/
+
+/*
+enum mapElementKeyConfig_e {
+    HOME_MAP_ELEMENT = 1,
+    WAYPOINT_MAP_ELEMENT = 2,
+    OTHER_CRAFT_MAP_ELEMENT = 3,
+};
+*/
+#define MAP_ELEMENT_KEY_CONFIG_COUNT 3
+
+// TODO: Move this to parm block 
+
+// Array of map element types we want to display in the key, and
+// in what priority order.
+osd_map_element_display_type_e mapElementKeyConfig[MAP_ELEMENT_KEY_CONFIG_COUNT] = {0,0,0};
+
+bool parseMapElementKeyConfig(const char * pMapElementKeyConfig)
+{
+    const char *remainingCharacters = pMapElementKeyConfig;
+
+
+
+	bool doneReading = false;
+    bool validResult = true;
+
+    for (int keyConfigIndex = 0; (!doneReading) && validResult && keyConfigIndex < MAP_ELEMENT_KEY_CONFIG_COUNT; keyConfigIndex++) {
+        int val = fastA2I(remainingCharacters);
+        if (val <= 0 || val > MAP_ELEMENT_KEY_CONFIG_COUNT) {
+            // Not a valid mapElementKeyConfig_e value            
+            validResult = false;
+            break;
+        }
+        mapElementKeyConfig[keyConfigIndex] = val;
+
+        remainingCharacters = strchr(remainingCharacters, ',');
+        if (remainingCharacters) {
+            remainingCharacters++;  // skip separator
+        } else {
+			doneReading = true;
+		}	
+    }
+
+    if (!validResult) {
+        memset(mapElementKeyConfig, 0, sizeof(*mapElementKeyConfig));
+    }
+
+    return validResult;
+}
+
+
+/*
+static int osdDrawMapElementLine(int countOfLinesLastDrawn, int mapElementIndex)
+{
+
+    return countOfLinesLastDrawn++;
+}
+*/
+
 static void osdDrawMapElementKey(osdMapElement_t * pOsdMapElements, 
                                  uint16_t osdMapElementCount, 
                                  osdMapElementXYInfo_t * pOsdMapElementXYInfos)
@@ -498,7 +563,7 @@ static void osdDrawMapElementKey(osdMapElement_t * pOsdMapElements,
     #define MAX_OSD_MAP_ELEMENT_KEY_LINE_COUNT 3
     // Position of the key onscreen
     const int OSD_MAP_ELEMENT_KEY_X_POS = 2;
-    const int OSD_MAP_ELEMENT_KEY_Y_POS = 2;
+    const int OSD_MAP_ELEMENT_KEY_Y_POS = 1;
 
     // Hardcoded for now; this will erase things it does not have to, so needs fixing.
 	// TODO: Array of actual key name lengths.
@@ -508,6 +573,8 @@ static void osdDrawMapElementKey(osdMapElement_t * pOsdMapElements,
     static int countOfLinesLastDrawn = 0;
 	// What were the lengths of those lines?
 	static int lineLengthsLastDrawn[MAX_OSD_MAP_ELEMENT_KEY_LINE_COUNT];
+
+    parseMapElementKeyConfig("2,3");
 
     // Erase previous display, if any
     int poiX = OSD_MAP_ELEMENT_KEY_X_POS;
@@ -531,54 +598,74 @@ static void osdDrawMapElementKey(osdMapElement_t * pOsdMapElements,
     poiX = OSD_MAP_ELEMENT_KEY_X_POS;
     poiY = OSD_MAP_ELEMENT_KEY_Y_POS;
     countOfLinesLastDrawn = 0;
-    for (int i = 0; i < osdMapElementCount && countOfLinesLastDrawn < MAX_OSD_MAP_ELEMENT_KEY_LINE_COUNT; i++) {
-		// TODO: Rework this all as sprintf??
-        // Symbol
-        displayWriteChar(osdDisplayPort, poiX, poiY, pOsdMapElementXYInfos[i].poiSymbol);
-        poiX += 1;
-        // Normal additional string (as can appear next to map elements on the map)
-        if (pOsdMapElementXYInfos[i].hasAdditionalString) {
-            // Write out additional string
-            int additionalStringLength = (int)strlen(pOsdMapElementXYInfos[i].additionalString);
-            displayWriteWithAttr(osdDisplayPort, poiX, poiY, pOsdMapElementXYInfos[i].additionalString, TEXT_ATTRIBUTES_NONE);
-            poiX += additionalStringLength;
-        }        
-        // Additionally, in the key we show distance to the map element
-        char tempDistanceString[MAX_ADDITIONAL_POI_TEXT_LENGTH];  
-        // Add separator character        
-        displayWriteChar(osdDisplayPort, poiX++, poiY, SYM_BLANK);
-        // Write out distance to map element
-        osdFormatDistanceSymbol(&tempDistanceString[0], pOsdMapElements[i].poiDistanceInCentimeters, true);
-        osdFormatDistanceStrImpl(&tempDistanceString[1], pOsdMapElements[i].poiDistanceInCentimeters, false);
-        displayWriteWithAttr(osdDisplayPort, poiX, poiY, tempDistanceString, TEXT_ATTRIBUTES_NONE); 
-        poiX += strlen(tempDistanceString);
-        
 
-        // If this is another craft, display its name at end
-        if (pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT) {
-			// Add separator character        
-			displayWriteChar(osdDisplayPort, poiX++, poiY, SYM_BLANK);
-            // Upper case the other craft name since our character set on the MAX chipset is limited to only upper case characters
-            char tempOtherCraftName[MAX_NAME_LENGTH];
-            strcpy(tempOtherCraftName, (const char *)otherCraftsToTrack[pOsdMapElements[i].otherCraftIndex].CraftName);            
-            for (uint8_t c = 0; c < strlen(tempOtherCraftName); c++) {
-                tempOtherCraftName[c] = sl_toupper(tempOtherCraftName[c]);
+
+    // Attempting to draw only items we care about, in the order we care about them
+    int mapElementKeyConfigIndex = 0;
+    int lineLengthsLastDrawnIndex = 0;
+    while(mapElementKeyConfigIndex < MAP_ELEMENT_KEY_CONFIG_COUNT && countOfLinesLastDrawn < MAX_OSD_MAP_ELEMENT_KEY_LINE_COUNT) {
+        // Go through each of the requested types
+        osd_map_element_display_type_e currentMapElementDisplayType = mapElementKeyConfig[mapElementKeyConfigIndex];
+        // Look for visible instances of those types in the map elements.
+        // Note that visible here is determined by foundFittingScale, not eligibleToBeDrawn, since blinking elements that are temporarily
+        // hidden are still considered to be onscreen from the point of view of the key.
+        for (int osdMapElementIndex = 0; (osdMapElementIndex < osdMapElementCount) && (countOfLinesLastDrawn < MAX_OSD_MAP_ELEMENT_KEY_LINE_COUNT); osdMapElementIndex++) {
+            if (pOsdMapElements[osdMapElementIndex].osdMapElementDisplayType == currentMapElementDisplayType && 
+                pOsdMapElementXYInfos[osdMapElementIndex].foundFittingScale) {
+                    // Do the work of drawing the line
+                    // ---------------------------------
+                    // TODO: Rework this all as sprintf??
+                    // Symbol
+                    displayWriteChar(osdDisplayPort, poiX, poiY, pOsdMapElementXYInfos[osdMapElementIndex].poiSymbol);
+                    poiX += 1;
+                    // Normal additional string (as can appear next to map elements on the map)
+                    if (pOsdMapElementXYInfos[osdMapElementIndex].hasAdditionalString) {
+                        // Write out additional string
+                        int additionalStringLength = (int)strlen(pOsdMapElementXYInfos[osdMapElementIndex].additionalString);
+                        displayWriteWithAttr(osdDisplayPort, poiX, poiY, pOsdMapElementXYInfos[osdMapElementIndex].additionalString, TEXT_ATTRIBUTES_NONE);
+                        poiX += additionalStringLength;
+                    }        
+                    // Additionally, in the key we show distance to the map element
+                    char tempDistanceString[MAX_ADDITIONAL_POI_TEXT_LENGTH];  
+                    // Add separator character        
+                    displayWriteChar(osdDisplayPort, poiX++, poiY, SYM_BLANK);
+                    // Write out distance to map element
+                    osdFormatDistanceSymbol(&tempDistanceString[0], pOsdMapElements[osdMapElementIndex].poiDistanceInCentimeters, true);
+                    osdFormatDistanceStrImpl(&tempDistanceString[1], pOsdMapElements[osdMapElementIndex].poiDistanceInCentimeters, false);
+                    displayWriteWithAttr(osdDisplayPort, poiX, poiY, tempDistanceString, TEXT_ATTRIBUTES_NONE); 
+                    poiX += strlen(tempDistanceString);
+                    
+                    // If this is another craft, display its name at end
+                    if (pOsdMapElements[osdMapElementIndex].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT) {
+                        // Add separator character        
+                        displayWriteChar(osdDisplayPort, poiX++, poiY, SYM_BLANK);
+                        // Upper case the other craft name since our character set on the MAX chipset is limited to only upper case characters
+                        char tempOtherCraftName[MAX_NAME_LENGTH];
+                        strcpy(tempOtherCraftName, (const char *)otherCraftsToTrack[pOsdMapElements[osdMapElementIndex].otherCraftIndex].CraftName);            
+                        for (uint8_t c = 0; c < strlen(tempOtherCraftName); c++) {
+                            tempOtherCraftName[c] = sl_toupper(tempOtherCraftName[c]);
+                        }
+                        
+                        // Either there is something wrong with the code below or it takes too long, I'm not sure..??
+                        
+                        // Write out other craft name
+                        //displayWriteWithAttr(osdDisplayPort, poiX, poiY, tempOtherCraftName, TEXT_ATTRIBUTES_NONE);
+                        //poiX += strlen(tempOtherCraftName);
+                    }
+
+                // Move to next line
+                lineLengthsLastDrawn[lineLengthsLastDrawnIndex] = poiX - OSD_MAP_ELEMENT_KEY_X_POS;
+                lineLengthsLastDrawnIndex++;
+                poiX = OSD_MAP_ELEMENT_KEY_X_POS;
+                poiY++;
+                countOfLinesLastDrawn++;
             }
-			
-			// Either there is something wrong with the code below or it takes too long, I'm not sure..??
-			
-			// Write out other craft name
-            //displayWriteWithAttr(osdDisplayPort, poiX, poiY, tempOtherCraftName, TEXT_ATTRIBUTES_NONE);
-            //poiX += strlen(tempOtherCraftName);
         }
-                
-        // Move to next line
-		lineLengthsLastDrawn[i] = poiX - OSD_MAP_ELEMENT_KEY_X_POS;
-        poiX = OSD_MAP_ELEMENT_KEY_X_POS;
-        poiY++;
+        // next requested type
+        mapElementKeyConfigIndex++;
+    }
 
-        countOfLinesLastDrawn++;               
-    }    
+      
 }        
 
 
