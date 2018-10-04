@@ -508,8 +508,6 @@ bool parseMapElementKeyConfig(const char * pMapElementKeyConfig)
 {
     const char *remainingCharacters = pMapElementKeyConfig;
 
-
-
 	bool doneReading = false;
     bool validResult = true;
 
@@ -596,7 +594,7 @@ static void osdDrawMapElementKey(osdMapElement_t * pOsdMapElements,
     //const int MAX_OSD_MAP_ELEMENT_KEY_LINE_COUNT_POSSIBLE_ON_SCREEN = 14;
 
     // How many lines maximum in the key? Should be user configurable.
-    #define MAX_OSD_MAP_ELEMENT_KEY_LINE_COUNT 3
+    #define MAX_OSD_MAP_ELEMENT_KEY_LINE_COUNT 7
     // Position of the key onscreen
     const int OSD_MAP_ELEMENT_KEY_X_POS = 2;
     const int OSD_MAP_ELEMENT_KEY_Y_POS = 1;
