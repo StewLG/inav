@@ -537,14 +537,50 @@ bool parseMapElementKeyConfig(const char * pMapElementKeyConfig)
     return validResult;
 }
 
-
-/*
-static int osdDrawMapElementLine(int countOfLinesLastDrawn, int mapElementIndex)
+static int osdDrawMapElementLine(osdMapElement_t * pOsdMapElement, osdMapElementXYInfo_t * pOsdMapElementXYInfo, int poiX, int poiY)
 {
-
-    return countOfLinesLastDrawn++;
+    // Do the work of drawing the line
+    // ---------------------------------
+    // TODO: Rework this all as sprintf??
+    // Symbol
+    displayWriteChar(osdDisplayPort, poiX, poiY, pOsdMapElementXYInfo->poiSymbol);
+    poiX += 1;
+    // Normal additional string (as can appear next to map elements on the map)
+    if (pOsdMapElementXYInfo->hasAdditionalString) {
+        // Write out additional string
+        int additionalStringLength = (int)strlen(pOsdMapElementXYInfo->additionalString);
+        displayWriteWithAttr(osdDisplayPort, poiX, poiY, pOsdMapElementXYInfo->additionalString, TEXT_ATTRIBUTES_NONE);
+        poiX += additionalStringLength;
+    }        
+    // Additionally, in the key we show distance to the map element
+    char tempDistanceString[MAX_ADDITIONAL_POI_TEXT_LENGTH];  
+    // Add separator character        
+    displayWriteChar(osdDisplayPort, poiX++, poiY, SYM_BLANK);
+    // Write out distance to map element
+    osdFormatDistanceSymbol(&tempDistanceString[0], pOsdMapElement->poiDistanceInCentimeters, true);
+    osdFormatDistanceStrImpl(&tempDistanceString[1], pOsdMapElement->poiDistanceInCentimeters, false);
+    displayWriteWithAttr(osdDisplayPort, poiX, poiY, tempDistanceString, TEXT_ATTRIBUTES_NONE); 
+    poiX += strlen(tempDistanceString);
+    
+    // If this is another craft, display its name at end
+    if (pOsdMapElement->osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT) {
+        // Add separator character        
+        displayWriteChar(osdDisplayPort, poiX++, poiY, SYM_BLANK);
+        // Upper case the other craft name since our character set on the MAX chipset is limited to only upper case characters
+        char tempOtherCraftName[MAX_NAME_LENGTH+1];
+        strcpy(tempOtherCraftName, (const char *)otherCraftsToTrack[pOsdMapElement->otherCraftIndex].CraftName);            
+        for (uint8_t c = 0; c < strlen(tempOtherCraftName); c++) {
+            tempOtherCraftName[c] = sl_toupper(tempOtherCraftName[c]);
+        }
+        
+        // Either there is something wrong with the code below or it takes too long, I'm not sure..??
+        
+        // Write out other craft name
+        //displayWriteWithAttr(osdDisplayPort, poiX, poiY, tempOtherCraftName, TEXT_ATTRIBUTES_NONE);
+        //poiX += strlen(tempOtherCraftName);
+    }
+    return poiX;
 }
-*/
 
 static void osdDrawMapElementKey(osdMapElement_t * pOsdMapElements, 
                                  uint16_t osdMapElementCount, 
@@ -599,7 +635,6 @@ static void osdDrawMapElementKey(osdMapElement_t * pOsdMapElements,
     poiY = OSD_MAP_ELEMENT_KEY_Y_POS;
     countOfLinesLastDrawn = 0;
 
-
     // Attempting to draw only items we care about, in the order we care about them
     int mapElementKeyConfigIndex = 0;
     int lineLengthsLastDrawnIndex = 0;
@@ -611,61 +646,20 @@ static void osdDrawMapElementKey(osdMapElement_t * pOsdMapElements,
         // hidden are still considered to be onscreen from the point of view of the key.
         for (int osdMapElementIndex = 0; (osdMapElementIndex < osdMapElementCount) && (countOfLinesLastDrawn < MAX_OSD_MAP_ELEMENT_KEY_LINE_COUNT); osdMapElementIndex++) {
             if (pOsdMapElements[osdMapElementIndex].osdMapElementDisplayType == currentMapElementDisplayType && 
-                pOsdMapElementXYInfos[osdMapElementIndex].foundFittingScale) {
-                    // Do the work of drawing the line
-                    // ---------------------------------
-                    // TODO: Rework this all as sprintf??
-                    // Symbol
-                    displayWriteChar(osdDisplayPort, poiX, poiY, pOsdMapElementXYInfos[osdMapElementIndex].poiSymbol);
-                    poiX += 1;
-                    // Normal additional string (as can appear next to map elements on the map)
-                    if (pOsdMapElementXYInfos[osdMapElementIndex].hasAdditionalString) {
-                        // Write out additional string
-                        int additionalStringLength = (int)strlen(pOsdMapElementXYInfos[osdMapElementIndex].additionalString);
-                        displayWriteWithAttr(osdDisplayPort, poiX, poiY, pOsdMapElementXYInfos[osdMapElementIndex].additionalString, TEXT_ATTRIBUTES_NONE);
-                        poiX += additionalStringLength;
-                    }        
-                    // Additionally, in the key we show distance to the map element
-                    char tempDistanceString[MAX_ADDITIONAL_POI_TEXT_LENGTH];  
-                    // Add separator character        
-                    displayWriteChar(osdDisplayPort, poiX++, poiY, SYM_BLANK);
-                    // Write out distance to map element
-                    osdFormatDistanceSymbol(&tempDistanceString[0], pOsdMapElements[osdMapElementIndex].poiDistanceInCentimeters, true);
-                    osdFormatDistanceStrImpl(&tempDistanceString[1], pOsdMapElements[osdMapElementIndex].poiDistanceInCentimeters, false);
-                    displayWriteWithAttr(osdDisplayPort, poiX, poiY, tempDistanceString, TEXT_ATTRIBUTES_NONE); 
-                    poiX += strlen(tempDistanceString);
-                    
-                    // If this is another craft, display its name at end
-                    if (pOsdMapElements[osdMapElementIndex].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT) {
-                        // Add separator character        
-                        displayWriteChar(osdDisplayPort, poiX++, poiY, SYM_BLANK);
-                        // Upper case the other craft name since our character set on the MAX chipset is limited to only upper case characters
-                        char tempOtherCraftName[MAX_NAME_LENGTH];
-                        strcpy(tempOtherCraftName, (const char *)otherCraftsToTrack[pOsdMapElements[osdMapElementIndex].otherCraftIndex].CraftName);            
-                        for (uint8_t c = 0; c < strlen(tempOtherCraftName); c++) {
-                            tempOtherCraftName[c] = sl_toupper(tempOtherCraftName[c]);
-                        }
-                        
-                        // Either there is something wrong with the code below or it takes too long, I'm not sure..??
-                        
-                        // Write out other craft name
-                        //displayWriteWithAttr(osdDisplayPort, poiX, poiY, tempOtherCraftName, TEXT_ATTRIBUTES_NONE);
-                        //poiX += strlen(tempOtherCraftName);
-                    }
-
-                // Move to next line
-                lineLengthsLastDrawn[lineLengthsLastDrawnIndex] = poiX - OSD_MAP_ELEMENT_KEY_X_POS;
-                lineLengthsLastDrawnIndex++;
-                poiX = OSD_MAP_ELEMENT_KEY_X_POS;
-                poiY++;
-                countOfLinesLastDrawn++;
+                pOsdMapElementXYInfos[osdMapElementIndex].foundFittingScale) {  
+                    // Draw the line                                  
+                    poiX = osdDrawMapElementLine(&(pOsdMapElements[osdMapElementIndex]), &(pOsdMapElementXYInfos[osdMapElementIndex]), poiX, poiY);                
+                    // Move to next line
+                    lineLengthsLastDrawn[lineLengthsLastDrawnIndex] = poiX - OSD_MAP_ELEMENT_KEY_X_POS;
+                    lineLengthsLastDrawnIndex++;
+                    poiX = OSD_MAP_ELEMENT_KEY_X_POS;
+                    poiY++;
+                    countOfLinesLastDrawn++;
             }
         }
         // next requested type
         mapElementKeyConfigIndex++;
     }
-
-      
 }        
 
 
