@@ -782,7 +782,7 @@ static void osdDrawMapImpl(int32_t referenceHeadingInCentidegrees, uint8_t refer
                 if (pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_OTHER_CRAFT ||
                     pOsdMapElements[i].osdMapElementDisplayType == OSD_MAP_ELEMENT_DISPLAY_TYPE_WAYPOINT) {
                         // Default to using absolute altitude for comparison. OTHER_CRAFT deliver their altitudes to
-                        // us in absolute altitude (cm above sea level), for example.
+                        // us in absolute altitude (height above sea level), for example.
                         int32_t thisCraftAltitudeInCm = gpsSol.llh.alt;
                         // Waypoints give their altitude in relative altitude, however, so we need to use relative
                         // altitude for comparison. 
